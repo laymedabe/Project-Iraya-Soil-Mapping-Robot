@@ -1,0 +1,42 @@
+"""
+Central configuration for Project Iraya's Flask application.
+
+All environment-specific values (serial port, DB credentials, etc.) are
+read from environment variables so the same codebase runs unmodified on
+a developer's laptop (simulated serial) and the actual Raspberry Pi.
+"""
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+class Config:
+    # --- Flask ---
+    SECRET_KEY = os.environ.get("IRAYA_SECRET_KEY", "dev-key-change-in-production")
+    DEBUG = os.environ.get("IRAYA_DEBUG", "false").lower() == "true"
+
+    # --- Serial link to Arduino Mega ---
+    SERIAL_PORT = os.environ.get("IRAYA_SERIAL_PORT", "/dev/ttyACM0")
+    SERIAL_BAUD = int(os.environ.get("IRAYA_SERIAL_BAUD", "115200"))
+    SERIAL_TIMEOUT = float(os.environ.get("IRAYA_SERIAL_TIMEOUT", "0.1"))
+    # Set to true on a dev machine with no Mega attached — serial_comm.py
+    # will log commands instead of writing to a real port.
+    SERIAL_SIMULATE = os.environ.get("IRAYA_SERIAL_SIMULATE", "false").lower() == "true"
+
+    # --- Drive safety ---
+    DRIVE_HEARTBEAT_TIMEOUT_S = 0.5   # server-side: stop if no heartbeat in this window
+
+    # --- MariaDB ---
+    DB_HOST = os.environ.get("IRAYA_DB_HOST", "localhost")
+    DB_PORT = int(os.environ.get("IRAYA_DB_PORT", "3306"))
+    DB_USER = os.environ.get("IRAYA_DB_USER", "iraya")
+    DB_PASSWORD = os.environ.get("IRAYA_DB_PASSWORD", "changeme")
+    DB_NAME = os.environ.get("IRAYA_DB_NAME", "project_iraya")
+
+    # --- Field bounding box (used for IDW grid extents) ---
+    FIELD_LAT_MIN = float(os.environ.get("IRAYA_LAT_MIN", "14.997"))
+    FIELD_LAT_MAX = float(os.environ.get("IRAYA_LAT_MAX", "15.001"))
+    FIELD_LON_MIN = float(os.environ.get("IRAYA_LON_MIN", "120.998"))
+    FIELD_LON_MAX = float(os.environ.get("IRAYA_LON_MAX", "121.003"))

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Manual Drive — Project Iraya{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title">Manual Drive Control <span>· skid-steer, watchdog-protected</span></div>
+    <div class="conn-banner" id="connBanner">Connecting…</div>
+  </div>
+
+  <div class="drive-wrap">
+    <div class="dpad">
+      <div class="empty"></div>
+      <button data-dir="FWD">▲</button>
+      <div class="empty"></div>
+      <button data-dir="LEFT">◀</button>
+      <button class="stop" id="bigX" data-dir="STOP">■</button>
+      <button data-dir="RIGHT">▶</button>
+      <div class="empty"></div>
+      <button data-dir="BACK">▼</button>
+      <div class="empty"></div>
+    </div>
+
+    <div class="speed-row">
+      <span style="font-family:var(--font-mono); font-size:11px; color:var(--parchment-dim); text-transform:uppercase;">Speed</span>
+      <input type="range" id="speedSlider" min="60" max="255" value="180">
+      <span class="val" id="speedVal">180</span>
+    </div>
+
+    <button class="stop big-stop" id="emergencyStop">EMERGENCY STOP</button>
+  </div>
+</div>
+
+<div class="footnote">
+  Hold a direction to drive — releasing sends STOP immediately. If the connection
+  drops, the Arduino Mega's own 400ms watchdog cuts motor power independently of this page.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/drive.js') }}"></script>
+{% endblock %}

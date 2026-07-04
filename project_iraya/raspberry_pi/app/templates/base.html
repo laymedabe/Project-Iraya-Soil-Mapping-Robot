@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Project Iraya{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">Ir</div>
+      <div>
+        <h1>Project Iraya</h1>
+        <div class="sub">Autonomous Soil Analysis — Field Console</div>
+      </div>
+    </div>
+    <nav class="top-nav">
+      <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+      <a href="{{ url_for('dashboard.drive') }}">Manual Drive</a>
+    </nav>
+  </header>
+  {% block content %}{% endblock %}
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>
