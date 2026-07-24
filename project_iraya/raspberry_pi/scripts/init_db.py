@@ -1,5 +1,5 @@
 """
-Verifies the MariaDB connection and schema after running schema.sql.
+Verifies the database connection and schema.
 Run once after setup: python scripts/init_db.py
 """
 
@@ -9,23 +9,30 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.models import get_db  # noqa: E402
+from app.config import Config  # noqa: E402
 
 
 def main():
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
-                cur.execute("SHOW TABLES")
-                tables = [list(row.values())[0] for row in cur.fetchall()]
+                if Config.DB_ENGINE == "sqlite":
+                    cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                    rows = cur.fetchall()
+                    tables = [r["name"] for r in rows]
+                else:
+                    cur.execute("SHOW TABLES")
+                    rows = cur.fetchall()
+                    tables = [list(r.values())[0] for r in rows]
+
         expected = {"sessions", "waypoints", "readings", "system_events"}
         missing = expected - set(tables)
         if missing:
-            print(f"Missing tables: {missing}. Did you run schema.sql?")
+            print(f"Missing tables: {missing}.")
             sys.exit(1)
-        print(f"Connected OK. Found tables: {tables}")
+        print(f"Database ready! Engine: {Config.DB_ENGINE}. Found tables: {tables}")
     except Exception as exc:
         print(f"Database connection failed: {exc}")
-        print("Check IRAYA_DB_HOST / IRAYA_DB_USER / IRAYA_DB_PASSWORD in your .env")
         sys.exit(1)
 
 

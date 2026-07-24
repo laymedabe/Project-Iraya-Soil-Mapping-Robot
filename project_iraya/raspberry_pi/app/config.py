@@ -28,7 +28,9 @@ class Config:
     # --- Drive safety ---
     DRIVE_HEARTBEAT_TIMEOUT_S = 0.5   # server-side: stop if no heartbeat in this window
 
-    # --- MariaDB ---
+    # --- Database (MariaDB on Pi 5 / SQLite for zero-config dev) ---
+    DB_ENGINE = os.environ.get("IRAYA_DB_ENGINE", "sqlite" if os.name == "nt" else "mariadb").lower()
+    DB_FILE = os.environ.get("IRAYA_DB_FILE", os.path.join(os.path.dirname(__file__), "..", "project_iraya.db"))
     DB_HOST = os.environ.get("IRAYA_DB_HOST", "localhost")
     DB_PORT = int(os.environ.get("IRAYA_DB_PORT", "3306"))
     DB_USER = os.environ.get("IRAYA_DB_USER", "iraya")

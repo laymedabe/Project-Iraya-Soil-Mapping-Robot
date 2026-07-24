@@ -1,34 +1,175 @@
 """
 Data access layer for Project Iraya.
 
-Deliberately kept as thin wrapper functions around PyMySQL rather than a
-full ORM — the query surface is small and fixed, and this keeps resource
-usage low on the Pi. Each function opens a short-lived connection; PyMySQL
-connections are cheap enough for this request volume (a few dozen writes
-per sampling run, not a high-throughput API).
+Supports both MariaDB (production on Raspberry Pi 5) and SQLite
+(zero-config development on Windows / developer laptops).
 """
 
-import pymysql
-import pymysql.cursors
+import sqlite3
+import logging
 from contextlib import contextmanager
 from app.config import Config
+
+logger = logging.getLogger("iraya.models")
+
+try:
+    import pymysql
+    import pymysql.cursors
+except ImportError:
+    pymysql = None
+
+_sqlite_initialized = False
+
+
+def _init_sqlite_tables(conn):
+    global _sqlite_initialized
+    if _sqlite_initialized:
+        return
+    cur = conn.cursor()
+    cur.executescript("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            field_name TEXT NOT NULL DEFAULT 'Unnamed Field',
+            started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            ended_at DATETIME NULL,
+            status TEXT NOT NULL DEFAULT 'running',
+            lat_min REAL, lat_max REAL,
+            lon_min REAL, lon_max REAL,
+            notes TEXT NULL,
+            synced_to_cloud INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS waypoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            seq_index INTEGER NOT NULL,
+            lat REAL NOT NULL,
+            lon REAL NOT NULL,
+            visited INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS readings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            waypoint_id INTEGER NULL,
+            recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            lat REAL NOT NULL,
+            lon REAL NOT NULL,
+            nitrogen REAL NOT NULL,
+            phosphorus REAL NOT NULL,
+            potassium REAL NOT NULL,
+            moisture REAL NULL,
+            temperature REAL NULL,
+            ec REAL NULL,
+            battery_pct REAL NULL,
+            synced_to_cloud INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (waypoint_id) REFERENCES waypoints(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS system_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NULL,
+            occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            level TEXT NOT NULL DEFAULT 'info',
+            source TEXT NOT NULL,
+            message TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
+        );
+    """)
+    conn.commit()
+    _sqlite_initialized = True
+
+
+class SQLiteCursorWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+        self._cur = conn.cursor()
+        self.lastrowid = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._cur.close()
+
+    def _format_query(self, query):
+        # Replace MySQL placeholders (%s) with SQLite placeholders (?)
+        # and NOW() with CURRENT_TIMESTAMP
+        q = query.replace("%s", "?").replace("NOW()", "CURRENT_TIMESTAMP")
+        return q
+
+    def execute(self, query, params=None):
+        q = self._format_query(query)
+        if params is None:
+            self._cur.execute(q)
+        else:
+            self._cur.execute(q, params)
+        self.lastrowid = self._cur.lastrowid
+        return self
+
+    def executemany(self, query, seq_of_params):
+        q = self._format_query(query)
+        self._cur.executemany(q, seq_of_params)
+        self.lastrowid = self._cur.lastrowid
+        return self
+
+    def fetchone(self):
+        row = self._cur.fetchone()
+        return dict(row) if row else None
+
+    def fetchall(self):
+        rows = self._cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+class SQLiteConnWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+
+    @contextmanager
+    def cursor(self):
+        yield SQLiteCursorWrapper(self._conn)
+
+    def close(self):
+        self._conn.close()
 
 
 @contextmanager
 def get_db():
-    conn = pymysql.connect(
-        host=Config.DB_HOST,
-        port=Config.DB_PORT,
-        user=Config.DB_USER,
-        password=Config.DB_PASSWORD,
-        database=Config.DB_NAME,
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True,
-    )
-    try:
-        yield conn
-    finally:
-        conn.close()
+    use_sqlite = Config.DB_ENGINE == "sqlite"
+
+    if not use_sqlite and pymysql is not None:
+        try:
+            conn = pymysql.connect(
+                host=Config.DB_HOST,
+                port=Config.DB_PORT,
+                user=Config.DB_USER,
+                password=Config.DB_PASSWORD,
+                database=Config.DB_NAME,
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=True,
+            )
+            try:
+                yield conn
+            finally:
+                conn.close()
+            return
+        except Exception as exc:
+            logger.warning(f"MariaDB connection failed ({exc}). Falling back to SQLite for local development.")
+            use_sqlite = True
+
+    if use_sqlite:
+        conn = sqlite3.connect(Config.DB_FILE)
+        conn.row_factory = sqlite3.Row
+        _init_sqlite_tables(conn)
+        wrapper = SQLiteConnWrapper(conn)
+        try:
+            yield wrapper
+        finally:
+            conn.commit()
+            wrapper.close()
 
 
 # ---------------------------------------------------------------- sessions
