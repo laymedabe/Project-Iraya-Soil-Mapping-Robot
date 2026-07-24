@@ -25,7 +25,7 @@ def create_app():
     app.register_blueprint(dashboard_bp)
 
     # SocketIO handlers register themselves via decorators on import
-    import app.sockets  # noqa: F401
+    from app import sockets  # noqa: F401
 
     socketio.init_app(app)
 
