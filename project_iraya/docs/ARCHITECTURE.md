@@ -1,4 +1,4 @@
-# Project Iraya — Architecture & Safety Rationale
+# Project Iraya — Architecture & Safety Rationale (v1.00)
 
 ## 1. Why a layered control hierarchy
 
