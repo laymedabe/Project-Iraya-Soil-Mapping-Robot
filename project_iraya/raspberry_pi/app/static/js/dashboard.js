@@ -290,3 +290,229 @@ el('stopBtn').addEventListener('click', ()=>{
   el('stopBtn').disabled = true;
   setStepUI('IDLE');
 });
+
+/* ========================================================================
+   MODE AWARENESS (Global Banner)
+   ======================================================================== */
+window.addEventListener('iraya:mode', (e) => {
+  const { mode } = e.detail;
+  const conflictBar = el('modeConflictBar');
+  const dpadBtns = document.querySelectorAll('.dpad button[data-dir]:not([data-dir="STOP"])');
+  const sampleBtn = el('takeSampleBtn');
+  
+  if (mode === 'auto') {
+    if (conflictBar) conflictBar.style.display = 'flex';
+    dpadBtns.forEach(b => b.disabled = true);
+    if (sampleBtn) sampleBtn.disabled = true;
+  } else {
+    if (conflictBar) conflictBar.style.display = 'none';
+    dpadBtns.forEach(b => b.disabled = false);
+    if (sampleBtn && !sampleBtn.classList.contains('running')) {
+      sampleBtn.disabled = false;
+    }
+  }
+});
+
+/* ========================================================================
+   MANUAL DRIVE CONTROL
+   ======================================================================== */
+const socket = io();
+let heartbeat = null;
+let currentSpeed = 180;
+
+const speedSlider = el('speedSlider');
+if (speedSlider) {
+  speedSlider.addEventListener('input', () => {
+    currentSpeed = parseInt(speedSlider.value, 10);
+    if (el('speedVal')) el('speedVal').textContent = currentSpeed;
+  });
+}
+
+function startDrive(direction){
+  socket.emit('drive', { direction, speed: currentSpeed });
+  clearInterval(heartbeat);
+  heartbeat = setInterval(() => {
+    socket.emit('drive', { direction, speed: currentSpeed });
+  }, 150);
+}
+
+function stopDrive(){
+  clearInterval(heartbeat);
+  socket.emit('drive', { direction: 'STOP', speed: 0 });
+}
+
+document.querySelectorAll('.dpad button[data-dir]').forEach(btn => {
+  const dir = btn.dataset.dir;
+
+  // Prevent right-click / long-press context menu on mobile
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  if(dir === 'STOP'){
+    btn.addEventListener('click', (e) => { e.preventDefault(); stopDrive(); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); stopDrive(); });
+    return;
+  }
+
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    btn.classList.add('active');
+    startDrive(dir);
+  });
+
+  btn.addEventListener('touchstart', (e) => {
+    if(e.cancelable) e.preventDefault();
+    btn.classList.add('active');
+    startDrive(dir);
+  });
+
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(evt => {
+    btn.addEventListener(evt, (e) => {
+      btn.classList.remove('active');
+      stopDrive();
+    });
+  });
+});
+
+const emergencyStop = el('emergencyStop');
+if (emergencyStop) {
+  emergencyStop.addEventListener('click', () => {
+    stopDrive();
+    socket.emit('drive', { direction: 'STOP', speed: 0 }); 
+  });
+}
+
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) stopDrive();
+});
+
+/* ========================================================================
+   MANUAL SOIL SAMPLE
+   ======================================================================== */
+
+function setSampleStepDot(n, state) {
+  const dot = el('sDot' + n);
+  if (dot) dot.className = 'sStep-dot ' + state;
+}
+
+function setSampleConnector(n, done) {
+  const connectors = document.querySelectorAll('.sample-step-connector');
+  if (connectors[n - 1]) {
+    connectors[n - 1].className = 'sample-step-connector' + (done ? ' done' : '');
+  }
+}
+
+function resetSampleUI() {
+  [1, 2, 3].forEach(n => setSampleStepDot(n, ''));
+  document.querySelectorAll('.sample-step-connector').forEach(c => c.className = 'sample-step-connector');
+  if (el('sampleProgress')) el('sampleProgress').style.display = 'none';
+  if (el('sampleError')) el('sampleError').style.display = 'none';
+}
+
+async function takeSample() {
+  const btn = el('takeSampleBtn');
+  const btnText = el('takeSampleBtnText');
+  if (!btn) return;
+
+  resetSampleUI();
+  
+  btn.classList.add('running');
+  btn.disabled = true;
+  if (btnText) btnText.textContent = 'Sampling in progress…';
+  if (el('sampleProgress')) el('sampleProgress').style.display = 'flex';
+
+  setSampleStepDot(1, 'active');
+
+  const samplePromise = fetch('/api/manual/sample', { method: 'POST' });
+
+  const step2Timer = setTimeout(() => {
+    setSampleStepDot(1, 'done');
+    setSampleConnector(1, true);
+    setSampleStepDot(2, 'active');
+  }, 600);
+
+  const step3Timer = setTimeout(() => {
+    setSampleStepDot(2, 'done');
+    setSampleConnector(2, true);
+    setSampleStepDot(3, 'active');
+  }, 1200);
+
+  let resp;
+  try {
+    resp = await samplePromise;
+  } catch (netErr) {
+    clearTimeout(step2Timer); clearTimeout(step3Timer);
+    showSampleError('Network error: ' + netErr.message);
+    resetSampleBtn(btn, btnText);
+    return;
+  }
+
+  clearTimeout(step2Timer); clearTimeout(step3Timer);
+
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    showSampleError(body.error || `Server error ${resp.status}`);
+    resetSampleBtn(btn, btnText);
+    return;
+  }
+
+  const data = await resp.json();
+  const r = data.reading;
+
+  setSampleStepDot(1, 'done'); setSampleConnector(1, true);
+  setSampleStepDot(2, 'done'); setSampleConnector(2, true);
+  setSampleStepDot(3, 'done');
+
+  if (r) {
+    r.lat = bounds.latMin; 
+    r.lon = bounds.lonMin;
+    const tag = statusTag(r.nitrogen || 0, r.phosphorus || 0, r.potassium || 0);
+    
+    // Log it with the actual status, using "—" for the index to show it's a manual spot check
+    addLogRow("—", r, tag);
+    
+    // Reflect the manual reading in the Latest Reading and Telemetry panels
+    if (el('nVal')) el('nVal').textContent = r.nitrogen.toFixed(1);
+    if (el('pVal')) el('pVal').textContent = r.phosphorus.toFixed(1);
+    if (el('kVal')) el('kVal').textContent = r.potassium.toFixed(1);
+    if (el('nBar')) el('nBar').style.width = Math.min(100, r.nitrogen/90*100) + '%';
+    if (el('pBar')) el('pBar').style.width = Math.min(100, r.phosphorus/50*100) + '%';
+    if (el('kBar')) el('kBar').style.width = Math.min(100, r.potassium/240*100) + '%';
+    
+    if (r.moisture !== undefined && el('moistVal')) el('moistVal').textContent = r.moisture.toFixed(1) + ' %';
+    if (r.temperature !== undefined && el('tempVal')) el('tempVal').textContent = r.temperature.toFixed(1) + ' °C';
+    if (r.ec !== undefined && el('ecVal')) el('ecVal').textContent = r.ec.toFixed(2) + ' dS/m';
+  }
+
+  resetSampleBtn(btn, btnText);
+}
+
+function showSampleError(msg) {
+  const errEl = el('sampleError');
+  if (errEl) {
+    errEl.textContent = '⚠ ' + msg;
+    errEl.style.display = 'block';
+  }
+}
+
+function resetSampleBtn(btn, btnText) {
+  if (!btn) return;
+  btn.classList.remove('running');
+  btn.disabled = false;
+  if (btnText) btnText.textContent = 'Take Soil Sample Now';
+}
+
+const sampleBtn = el('takeSampleBtn');
+if (sampleBtn) {
+  sampleBtn.addEventListener('click', takeSample);
+}
+
+const manualOpsToggle = el('manualOpsToggle');
+const manualOpsContent = el('manualOpsContent');
+const manualOpsChevron = el('manualOpsChevron');
+if (manualOpsToggle && manualOpsContent && manualOpsChevron) {
+  manualOpsToggle.addEventListener('click', () => {
+    const isHidden = manualOpsContent.style.display === 'none';
+    manualOpsContent.style.display = isHidden ? 'block' : 'none';
+    manualOpsChevron.textContent = isHidden ? '▲' : '▼';
+  });
+}

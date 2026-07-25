@@ -19,8 +19,7 @@
       </div>
     </div>
     <nav class="top-nav">
-      <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">Dashboard</a>
-      <a href="{{ url_for('dashboard.drive') }}" class="nav-link {% if request.endpoint == 'dashboard.drive' %}active{% endif %}">Manual Drive</a>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link active">Dashboard</a>
     </nav>
   </header>
   {% block content %}{% endblock %}

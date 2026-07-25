@@ -18,6 +18,7 @@ from app import models
 from app.serial_comm import mega_link
 from app.interpolation import idw_interpolate
 from app.config import Config
+from app import state
 
 logger = logging.getLogger("iraya.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -39,6 +40,10 @@ def _generate_boustrophedon_path(lat_min, lat_max, lon_min, lon_max, rows=4, col
 
 @api_bp.route("/session/start", methods=["POST"])
 def start_session():
+    with state.mode_lock:
+        if state.current_mode != "idle":
+            return jsonify({"error": f"Cannot start session, system is in {state.current_mode} mode"}), 409
+        
     body = request.get_json(silent=True) or {}
     field_name = body.get("field_name", "Unnamed Field")
     lat_min = body.get("lat_min", Config.FIELD_LAT_MIN)
@@ -53,6 +58,13 @@ def start_session():
     models.bulk_insert_waypoints(session_id, path)
     models.log_event("info", "api", f"Session {session_id} started ({len(path)} waypoints)", session_id)
 
+    with state.mode_lock:
+        state.current_mode = "auto"
+        state.auto_task["session_id"] = session_id
+        state.auto_task["current_waypoint_index"] = 0
+        state.auto_task["total_waypoints"] = len(path)
+
+    logger.info(f"Mode \u2192 AUTO (session {session_id})")
     return jsonify({"session_id": session_id, "waypoint_count": len(path)}), 201
 
 
@@ -68,6 +80,11 @@ def stop_session(session_id):
     except Exception as exc:
         logger.error(f"Failed to send STOP on session stop: {exc}")
     models.log_event("info", "api", f"Session {session_id} {final_status}", session_id)
+    
+    with state.mode_lock:
+        state.current_mode = "idle"
+        state.auto_task["session_id"] = None
+    logger.info("Mode \u2192 IDLE")
     return jsonify({"status": final_status})
 
 
@@ -90,6 +107,10 @@ def trigger_sample(session_id):
     Mega. This endpoint returns immediately (ack only) — the actual reading
     arrives asynchronously via the Mega's DATA line and is fetched by the
     client through /latest."""
+    with state.mode_lock:
+        if state.current_mode != "auto" or state.auto_task["session_id"] != session_id:
+            return jsonify({"error": "Session is not active in auto mode"}), 409
+            
     waypoint = models.get_next_waypoint(session_id)
     if waypoint is None:
         return jsonify({"done": True, "message": "All waypoints visited"}), 200
@@ -101,6 +122,9 @@ def trigger_sample(session_id):
         logger.error(f"Sample command failed: {exc}")
         models.log_event("fault", "api", f"Sample command failed: {exc}", session_id)
         return jsonify({"error": str(exc)}), 500
+
+    with state.mode_lock:
+        state.auto_task["current_waypoint_index"] += 1
 
     return jsonify({
         "done": False,
@@ -178,3 +202,58 @@ def get_map(session_id):
 @api_bp.route("/session/<int:session_id>/waypoints", methods=["GET"])
 def get_waypoints(session_id):
     return jsonify(models.get_waypoints(session_id))
+
+
+@api_bp.route("/status", methods=["GET"])
+def get_status():
+    """Global robot status endpoint for mode polling."""
+    return jsonify({
+        "mode": state.current_mode,
+        "auto_task": state.auto_task,
+        "mega_step": mega_link.state["step"],
+        "mega_connected": mega_link.state["connected"]
+    })
+
+
+@api_bp.route("/manual/sample", methods=["POST"])
+def manual_sample():
+    """Triggers an immediate spot-sample without a session."""
+    with state.mode_lock:
+        if state.current_mode == "auto":
+            return jsonify({"error": "Cannot take manual sample while Auto Run is active"}), 409
+        original_mode = state.current_mode
+        state.current_mode = "manual"
+    
+    try:
+        import time
+        # Send sample command and block until DATA is received or timeout
+        mega_link.send_command("SAMPLE")
+        
+        # Simple polling to wait for the data event in the mega_link queue
+        # For a robust production system, use a threading.Event triggered by the serial thread
+        timeout = 15.0 
+        start_t = time.time()
+        reading = None
+        
+        while time.time() - start_t < timeout:
+            events = mega_link.drain_events()
+            for evt in events:
+                if evt["type"] == "data":
+                    reading = evt["payload"]
+                    break
+            if reading:
+                break
+            time.sleep(0.1)
+            
+        if not reading:
+            raise Exception("Timeout waiting for sensor data from Mega")
+            
+        return jsonify({"status": "success", "reading": reading})
+        
+    except Exception as e:
+        logger.error(f"Manual sample failed: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        with state.mode_lock:
+            if state.current_mode == "manual":
+                state.current_mode = original_mode

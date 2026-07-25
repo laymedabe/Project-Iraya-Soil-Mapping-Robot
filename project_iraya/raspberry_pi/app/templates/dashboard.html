@@ -14,16 +14,79 @@
 </div>
 
 <div class="grid">
-  <div class="panel map-panel">
-    <div class="panel-head">
-      <div class="panel-title">Interpolated NPK Map <span>· IDW, live from MariaDB readings</span></div>
+  <div class="left-col" style="display: flex; flex-direction: column; gap: 18px;">
+    <div class="panel map-panel">
+      <div class="panel-head">
+        <div class="panel-title">Interpolated NPK Map <span>· IDW, live from MariaDB readings</span></div>
+      </div>
+      <div id="fieldCanvasWrap">
+        <canvas id="fieldCanvas" width="900" height="560"></canvas>
+      </div>
+      <div class="legend">
+        <span>Low</span><div class="legend-bar"></div><span>High</span>
+        <span class="legend-subtitle">Composite N-P-K index</span>
+      </div>
     </div>
-    <div id="fieldCanvasWrap">
-      <canvas id="fieldCanvas" width="900" height="560"></canvas>
-    </div>
-    <div class="legend">
-      <span>Low</span><div class="legend-bar"></div><span>High</span>
-      <span class="legend-subtitle">Composite N-P-K index</span>
+
+    <!-- MANUAL OPERATIONS PANEL (Moved from Rail to Left Column) -->
+    <div class="panel manual-ops-panel">
+      <div class="panel-head" style="cursor: pointer; user-select: none;" id="manualOpsToggle">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="panel-title">Manual Operations <span>· drive & spot-check</span></div>
+          <span id="manualOpsChevron" style="color: var(--text-muted); font-size: 12px;">▼</span>
+        </div>
+      </div>
+      
+      <div id="manualOpsContent" style="display: none; margin-top: 15px;">
+        
+        <!-- Mode conflict warning -->
+        <div class="mode-conflict-bar" id="modeConflictBar" style="display:none; margin-bottom: 12px;">
+          <span class="mode-conflict-icon">⚙</span>
+          <span id="modeConflictMsg">Auto Run is active — manual controls locked.</span>
+        </div>
+
+        <div class="drive-wrap" style="padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 16px;">
+          <div class="dpad" id="dpad">
+            <div class="empty"></div>
+            <button type="button" data-dir="FWD" aria-label="Forward">▲</button>
+            <div class="empty"></div>
+            <button type="button" data-dir="LEFT" aria-label="Steer Left">◀</button>
+            <button type="button" class="stop" id="bigX" data-dir="STOP" aria-label="Stop">■</button>
+            <button type="button" data-dir="RIGHT" aria-label="Steer Right">▶</button>
+            <div class="empty"></div>
+            <button type="button" data-dir="BACK" aria-label="Reverse">▼</button>
+            <div class="empty"></div>
+          </div>
+
+          <div class="speed-row" style="margin-top: 10px;">
+            <span class="speed-label">Speed</span>
+            <input type="range" id="speedSlider" min="60" max="255" value="180">
+            <span class="val" id="speedVal">180</span>
+          </div>
+
+          <button type="button" class="stop big-stop" id="emergencyStop" style="margin-top: 10px; width: 100%;">EMERGENCY STOP</button>
+        </div>
+
+        <!-- Manual Sample Sub-Section -->
+        <div class="sample-section">
+          <p class="sample-desc" style="font-size: 11px; margin-bottom: 10px;">Spot-check soil at current position.</p>
+          <button type="button" class="sample-btn" id="takeSampleBtn">
+            <span class="sample-btn-icon">🌱</span>
+            <span id="takeSampleBtnText">Take Soil Sample Now</span>
+          </button>
+
+          <div class="sample-progress" id="sampleProgress" style="display:none; margin-top:10px;">
+            <div class="sample-step" id="sStep1"><div class="sStep-dot" id="sDot1"></div></div>
+            <div class="sample-step-connector"></div>
+            <div class="sample-step" id="sStep2"><div class="sStep-dot" id="sDot2"></div></div>
+            <div class="sample-step-connector"></div>
+            <div class="sample-step" id="sStep3"><div class="sStep-dot" id="sDot3"></div></div>
+          </div>
+          
+          <!-- Error strip -->
+          <div class="sample-error" id="sampleError" style="display:none; margin-top:10px;"></div>
+        </div>
+      </div> <!-- /manualOpsContent -->
     </div>
   </div>
 
@@ -69,10 +132,12 @@
     <div class="panel">
       <div class="panel-head"><div class="panel-title">Session Control</div></div>
       <div class="controls">
-        <button class="primary" id="startBtn">Start Run</button>
-        <button class="stop" id="stopBtn" disabled>Stop</button>
+        <button type="button" class="primary" id="startBtn">▶ Auto Run</button>
+        <button type="button" class="stop" id="stopBtn" disabled>■ Stop</button>
       </div>
     </div>
+
+
   </div>
 </div>
 

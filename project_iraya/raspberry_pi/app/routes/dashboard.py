@@ -14,6 +14,3 @@ def index():
     })
 
 
-@dashboard_bp.route("/drive")
-def drive():
-    return render_template("drive.html")
