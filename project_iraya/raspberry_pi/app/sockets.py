@@ -22,6 +22,7 @@ from app.extensions import socketio
 from app.serial_comm import mega_link
 from app.config import Config
 from app import models
+from app import state
 
 logger = logging.getLogger("iraya.sockets")
 
@@ -63,6 +64,11 @@ def handle_drive(data):
     data = {"direction": "FWD" | "BACK" | "LEFT" | "RIGHT" | "STOP", "speed": 0-255}
     Sent repeatedly (~150ms) by the browser while a direction is held.
     """
+    with state.mode_lock:
+        if state.current_mode == "auto":
+            emit("mode_conflict", {"message": "Auto Run is active — drive controls locked."})
+            return
+
     direction = data.get("direction", "STOP")
     speed = max(0, min(255, int(data.get("speed", 0))))
 
