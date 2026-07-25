@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>{% block title %}Project Iraya{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -13,14 +13,14 @@
   <header>
     <div class="brand">
       <div class="brand-mark">Ir</div>
-      <div>
+      <div class="brand-text">
         <h1>Project Iraya</h1>
         <div class="sub">Autonomous Soil Analysis — Field Console</div>
       </div>
     </div>
     <nav class="top-nav">
-      <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
-      <a href="{{ url_for('dashboard.drive') }}">Manual Drive</a>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">Dashboard</a>
+      <a href="{{ url_for('dashboard.drive') }}" class="nav-link {% if request.endpoint == 'dashboard.drive' %}active{% endif %}">Manual Drive</a>
     </nav>
   </header>
   {% block content %}{% endblock %}
