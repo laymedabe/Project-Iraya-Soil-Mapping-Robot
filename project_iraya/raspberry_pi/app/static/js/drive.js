@@ -30,15 +30,34 @@ function stopDrive(){
 
 document.querySelectorAll('.dpad button[data-dir]').forEach(btn => {
   const dir = btn.dataset.dir;
+
+  // Prevent right-click / long-press context menu on mobile
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+
   if(dir === 'STOP'){
-    btn.addEventListener('click', stopDrive);
+    btn.addEventListener('click', (e) => { e.preventDefault(); stopDrive(); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); stopDrive(); });
     return;
   }
-  btn.addEventListener('mousedown', () => { btn.classList.add('active'); startDrive(dir); });
-  btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.classList.add('active'); startDrive(dir); });
-  ['mouseup','mouseleave','touchend','touchcancel'].forEach(evt =>
-    btn.addEventListener(evt, () => { btn.classList.remove('active'); stopDrive(); })
-  );
+
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    btn.classList.add('active');
+    startDrive(dir);
+  });
+
+  btn.addEventListener('touchstart', (e) => {
+    if(e.cancelable) e.preventDefault();
+    btn.classList.add('active');
+    startDrive(dir);
+  });
+
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(evt => {
+    btn.addEventListener(evt, (e) => {
+      btn.classList.remove('active');
+      stopDrive();
+    });
+  });
 });
 
 el('emergencyStop').addEventListener('click', () => {
