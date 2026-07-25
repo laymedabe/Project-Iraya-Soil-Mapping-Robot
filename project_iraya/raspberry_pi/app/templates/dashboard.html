@@ -2,7 +2,7 @@
 {% block title %}Dashboard — Project Iraya{% endblock %}
 
 {% block content %}
-<div class="status-cluster" style="margin-bottom:18px; justify-content:flex-end;">
+<div class="status-cluster">
   <div class="status-item">
     <div class="label">Mega Link</div>
     <div class="val"><span class="dot idle" id="linkDot"></span><span id="linkText">Connecting…</span></div>
@@ -14,7 +14,7 @@
 </div>
 
 <div class="grid">
-  <div class="panel">
+  <div class="panel map-panel">
     <div class="panel-head">
       <div class="panel-title">Interpolated NPK Map <span>· IDW, live from MariaDB readings</span></div>
     </div>
@@ -23,7 +23,7 @@
     </div>
     <div class="legend">
       <span>Low</span><div class="legend-bar"></div><span>High</span>
-      <span style="margin-left:auto; color:var(--tan);">Composite N-P-K index</span>
+      <span class="legend-subtitle">Composite N-P-K index</span>
     </div>
   </div>
 
@@ -76,8 +76,8 @@
   </div>
 </div>
 
-<div class="grid" style="margin-top:18px;">
-  <div class="panel">
+<div class="grid lower-grid">
+  <div class="panel log-panel">
     <div class="panel-head"><div class="panel-title">Sample Log <span id="logSub">· no active session</span></div></div>
     <div class="log-scroll">
       <table>
@@ -87,7 +87,7 @@
       <div class="empty-log" id="emptyLog">Press Start Run to begin sampling.</div>
     </div>
   </div>
-  <div class="panel">
+  <div class="panel chart-panel">
     <div class="panel-head"><div class="panel-title">NPK Trend <span>· last 12 samples</span></div></div>
     <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
   </div>
