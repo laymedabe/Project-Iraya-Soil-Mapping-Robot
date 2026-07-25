@@ -39,9 +39,28 @@ function setStepUI(step){
 /* ---------------- field map (canvas, IDW from server) ---------------- */
 const canvas = el('fieldCanvas');
 const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height, PAD = 46;
 
-function latLonToXY(lat, lon){
+let lastGridData = null;
+let lastWaypoints = null;
+
+function getCanvasDimensions(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const w = Math.max(300, Math.floor(rect.width));
+  const h = Math.max(200, Math.floor(rect.height || (rect.width * 560 / 900)));
+  return { w, h, pad: Math.max(20, Math.floor(w * 0.05)) };
+}
+
+function syncCanvasSize(){
+  const { w, h } = getCanvasDimensions();
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+    return true;
+  }
+  return false;
+}
+
+function latLonToXY(lat, lon, W, H, PAD){
   const x = PAD + (lon-bounds.lonMin)/(bounds.lonMax-bounds.lonMin) * (W-2*PAD);
   const y = PAD + (bounds.latMax-lat)/(bounds.latMax-bounds.latMin) * (H-2*PAD);
   return [x,y];
@@ -55,15 +74,25 @@ function colorForValue(v){
   }
   return stops[stops.length-1][1];
 }
-function drawFieldFromGrid(gridResp, waypoints, visitedLatLons){
+function drawFieldFromGrid(gridResp, waypoints){
+  if (gridResp !== undefined) lastGridData = gridResp;
+  if (waypoints !== undefined) lastWaypoints = waypoints;
+
+  syncCanvasSize();
+  const W = canvas.width, H = canvas.height;
+  const PAD = Math.max(20, Math.floor(W * 0.05));
+
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle = '#0F0D09'; ctx.fillRect(0,0,W,H);
 
-  if(gridResp && gridResp.grids && gridResp.lats.length){
-    const lats = gridResp.lats, lons = gridResp.lons;
+  const activeGrid = lastGridData;
+  const activeWaypoints = lastWaypoints;
+
+  if(activeGrid && activeGrid.grids && activeGrid.lats.length){
+    const lats = activeGrid.lats, lons = activeGrid.lons;
     const res = lats.length;
     const cw = (W-2*PAD)/res, ch = (H-2*PAD)/res;
-    const nGrid = gridResp.grids.nitrogen, pGrid = gridResp.grids.phosphorus, kGrid = gridResp.grids.potassium;
+    const nGrid = activeGrid.grids.nitrogen, pGrid = activeGrid.grids.phosphorus, kGrid = activeGrid.grids.potassium;
     for(let i=0;i<res;i++){
       for(let j=0;j<res;j++){
         const composite = (nGrid[i][j]/80*0.4) + (pGrid[i][j]/45*0.3) + (kGrid[i][j]/220*0.3);
@@ -78,18 +107,18 @@ function drawFieldFromGrid(gridResp, waypoints, visitedLatLons){
   }
 
   // planned path
-  if(waypoints && waypoints.length){
+  if(activeWaypoints && activeWaypoints.length){
     ctx.strokeStyle = 'rgba(242,236,221,0.25)'; ctx.setLineDash([4,5]); ctx.lineWidth=1.5;
     ctx.beginPath();
-    waypoints.forEach((wp,idx)=>{
-      const [x,y] = latLonToXY(parseFloat(wp.lat), parseFloat(wp.lon));
+    activeWaypoints.forEach((wp,idx)=>{
+      const [x,y] = latLonToXY(parseFloat(wp.lat), parseFloat(wp.lon), W, H, PAD);
       if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke(); ctx.setLineDash([]);
 
-    waypoints.forEach(wp=>{
-      const [x,y] = latLonToXY(parseFloat(wp.lat), parseFloat(wp.lon));
-      ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2);
+    activeWaypoints.forEach(wp=>{
+      const [x,y] = latLonToXY(parseFloat(wp.lat), parseFloat(wp.lon), W, H, PAD);
+      ctx.beginPath(); ctx.arc(x,y, Math.max(3, Math.floor(W/200)), 0, Math.PI*2);
       ctx.fillStyle = wp.visited ? 'rgba(242,236,221,0.9)' : 'rgba(242,236,221,0.25)';
       ctx.fill();
       if(wp.visited){ ctx.strokeStyle='#14120D'; ctx.lineWidth=1.5; ctx.stroke(); }
@@ -97,11 +126,19 @@ function drawFieldFromGrid(gridResp, waypoints, visitedLatLons){
   }
 
   ctx.fillStyle = 'rgba(185,176,154,0.8)';
-  ctx.font = '10px "JetBrains Mono", monospace';
-  ctx.fillText(bounds.lonMin.toFixed(3), PAD-8, H-PAD+16);
-  ctx.fillText(bounds.lonMax.toFixed(3), W-PAD-30, H-PAD+16);
+  ctx.font = `${Math.max(9, Math.floor(W/75))}px "JetBrains Mono", monospace`;
+  ctx.fillText(bounds.lonMin.toFixed(3), PAD-4, H-PAD+14);
+  ctx.fillText(bounds.lonMax.toFixed(3), W-PAD-28, H-PAD+14);
 }
 drawFieldFromGrid(null, []);
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    drawFieldFromGrid();
+  }, 100);
+});
 
 /* ---------------- trend chart ---------------- */
 const trendChart = new Chart(el('trendChart').getContext('2d'), {
