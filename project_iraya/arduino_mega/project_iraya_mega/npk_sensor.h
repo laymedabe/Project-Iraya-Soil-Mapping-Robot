@@ -8,7 +8,7 @@ struct NpkReading {
   float phosphorus;   // mg/kg (from Modbus register)
   bool valid;
   // Raw hex response stored for CSV logging (matches rccode.ino output)
-  byte rawResponse[32];
+  uint8_t rawResponse[32];
   int rawLength;
 };
 

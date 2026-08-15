@@ -6,6 +6,7 @@
  * Arduino Mega 2560 with dual BTS7960 motor drivers, 2-channel relay
  * for linear actuator, MAX485 RS485 NPK sensor, NEO-6M GPS, and IR remote.
  */
+#include <Arduino.h>
 
 // ---- IR Receiver ----
 #define IR_RECEIVE_PIN  11

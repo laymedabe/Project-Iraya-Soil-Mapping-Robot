@@ -16,7 +16,7 @@
  */
 
 // Pre-computed Modbus RTU request frame (matches rccode.ino)
-static const byte sensorRequest[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
+static const uint8_t sensorRequest[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
 
 void npkInit() {
   pinMode(DE_RE_PIN, OUTPUT);
@@ -45,7 +45,7 @@ NpkReading npkRead() {
 
   while (millis() - startTime < 1000) {
     if (RS485_SERIAL.available()) {
-      byte incomingByte = RS485_SERIAL.read();
+      uint8_t incomingByte = RS485_SERIAL.read();
       if (received < (int)sizeof(result.rawResponse)) {
         result.rawResponse[received] = incomingByte;
       }
