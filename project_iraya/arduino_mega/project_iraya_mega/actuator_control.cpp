@@ -1,66 +1,90 @@
 #include "actuator_control.h"
 #include "config.h"
 
+static ActuatorState actState = ACT_IDLE;
+static unsigned long actTimer = 0;
+bool samplingCompleted = false;
+
 void actuatorInit() {
-  pinMode(ACTUATOR_PWM_PIN, OUTPUT);
-  pinMode(ACTUATOR_DIR_PIN, OUTPUT);
-  pinMode(ACTUATOR_POT_PIN, INPUT);
-  pinMode(ACTUATOR_CURRENT_PIN, INPUT);
-  analogWrite(ACTUATOR_PWM_PIN, 0);
+  pinMode(RELAY_ACT_1, OUTPUT);
+  pinMode(RELAY_ACT_2, OUTPUT);
+  stopActuatorRelay();
 }
 
-// Converts a raw potentiometer ADC reading (0-1023) to mm of travel.
-// CALIBRATE these two constants against your actual actuator + pot before
-// relying on this for anything beyond rough position feedback.
-static int potToMm(int raw) {
-  const int POT_AT_ZERO_MM = 60;     // ADC value when fully retracted
-  const int POT_AT_MAX_MM = 900;     // ADC value when fully extended (150mm)
-  long mm = map(raw, POT_AT_ZERO_MM, POT_AT_MAX_MM, 0, ACTUATOR_MAX_STROKE_MM);
-  return constrain(mm, 0, ACTUATOR_MAX_STROKE_MM);
+void startActuatorExtend() {
+  actState = ACT_EXTENDING;
+  actTimer = millis();
+  samplingCompleted = false;
+
+  // Extend Actuator (Active-LOW Relays)
+  // Lead 1 → +12V (relay ON = LOW), Lead 2 → GND (relay OFF = HIGH)
+  digitalWrite(RELAY_ACT_1, LOW);
+  digitalWrite(RELAY_ACT_2, HIGH);
 }
 
-static int readCurrentMa() {
-  // Placeholder linear mapping — replace with your current sensor's actual
-  // datasheet conversion (e.g. ACS712: (raw - zeroOffset) * sensitivity).
-  int raw = analogRead(ACTUATOR_CURRENT_PIN);
-  return raw * 5; // rough placeholder scale, TUNE THIS
-}
+void updateActuatorSequence() {
+  switch (actState) {
 
-int actuatorCurrentDepthMm() {
-  return potToMm(analogRead(ACTUATOR_POT_PIN));
-}
+    case ACT_EXTENDING:
+      if (millis() - actTimer >= ACTUATOR_EXTEND_TIME_MS) {
+        PI_SERIAL.println(F(">> Probe inserted into soil. Reading NPK & GPS mapping data..."));
+        PI_SERIAL.println("STATUS READING");
+        stopActuatorRelay();
+        actState = ACT_HOLDING;
+        actTimer = millis();
+      }
+      break;
 
-static bool driveToDepth(int targetMm, bool extending) {
-  unsigned long start = millis();
-  digitalWrite(ACTUATOR_DIR_PIN, extending ? HIGH : LOW);
-  analogWrite(ACTUATOR_PWM_PIN, 200); // fixed speed; swap for PID if needed
+    case ACT_HOLDING:
+      // Data capture happens in the main .ino during this state
+      // (checks samplingCompleted flag)
 
-  while (true) {
-    int depth = actuatorCurrentDepthMm();
-    bool reached = extending ? (depth >= targetMm) : (depth <= targetMm);
-    if (reached) break;
+      // Hold probe extended in soil for the configured duration
+      if (millis() - actTimer >= ACTUATOR_HOLD_TIME_MS) {
+        PI_SERIAL.println(F(">> Sampling complete. Retracting probe..."));
+        PI_SERIAL.println("STATUS RETRACTING");
+        actState = ACT_RETRACTING;
+        actTimer = millis();
 
-    if (readCurrentMa() > ACTUATOR_STALL_CURRENT_MA) {
-      analogWrite(ACTUATOR_PWM_PIN, 0);
-      PI_SERIAL.println("FAULT ACTUATOR_STALL");
-      return false;
-    }
-    if (millis() - start > ACTUATOR_MAX_TRAVEL_TIME_MS) {
-      analogWrite(ACTUATOR_PWM_PIN, 0);
-      PI_SERIAL.println("FAULT ACTUATOR_TIMEOUT");
-      return false;
-    }
-    delay(5);
+        // Retract Actuator (Active-LOW Relays)
+        // Lead 1 → GND (relay OFF = HIGH), Lead 2 → +12V (relay ON = LOW)
+        digitalWrite(RELAY_ACT_1, HIGH);
+        digitalWrite(RELAY_ACT_2, LOW);
+      }
+      break;
+
+    case ACT_RETRACTING:
+      if (millis() - actTimer >= ACTUATOR_RETRACT_TIME_MS) {
+        PI_SERIAL.println(F(">> Probe fully retracted. Robot ready to navigate."));
+        PI_SERIAL.println("STATUS IDLE");
+        PI_SERIAL.println(F("----------------------------------------------------------\n"));
+        stopActuatorRelay();
+        actState = ACT_IDLE;
+      }
+      break;
+
+    case ACT_IDLE:
+    default:
+      break;
   }
-
-  analogWrite(ACTUATOR_PWM_PIN, 0);
-  return true;
 }
 
-bool actuatorLower() {
-  return driveToDepth(ACTUATOR_TARGET_DEPTH_MM, true);
+void stopActuatorRelay() {
+  // Active-LOW Relays turn OFF when driven HIGH
+  digitalWrite(RELAY_ACT_1, HIGH);
+  digitalWrite(RELAY_ACT_2, HIGH);
 }
 
-bool actuatorRaise() {
-  return driveToDepth(0, false);
+ActuatorState getActuatorState() {
+  return actState;
+}
+
+const char* getActuatorStateLabel() {
+  switch (actState) {
+    case ACT_EXTENDING:  return "LOWERING";
+    case ACT_HOLDING:    return "READING";
+    case ACT_RETRACTING: return "RAISED";
+    case ACT_IDLE:
+    default:             return "IDLE";
+  }
 }
