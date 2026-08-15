@@ -30,10 +30,23 @@ function setGaugeDepth(mm){
 }
 function setStepUI(step){
   el('stepLabel').textContent = step;
-  const live = ['MOVING','LOWERING','READING','ALIGNED'].includes(step);
+  const live = ['MOVING','LOWERING','READING','RETRACTING','ALIGNED'].includes(step);
   el('stepDot').className = 'dot ' + (live ? 'live' : 'idle');
-  if(step === 'LOWERING' || step === 'READING') setGaugeDepth(130);
-  else if(step === 'RAISED' || step === 'IDLE') setGaugeDepth(0);
+
+  // Phase-based actuator gauge (relay-timed, no mm feedback)
+  if(step === 'LOWERING') {
+    setGaugeDepth(100);
+    el('depthVal').textContent = 'Extending...';
+  } else if(step === 'READING') {
+    setGaugeDepth(130);
+    el('depthVal').textContent = 'Holding / Reading';
+  } else if(step === 'RETRACTING') {
+    setGaugeDepth(60);
+    el('depthVal').textContent = 'Retracting...';
+  } else if(step === 'RAISED' || step === 'IDLE') {
+    setGaugeDepth(0);
+    el('depthVal').textContent = 'Standby';
+  }
 }
 
 /* ---------------- field map (canvas, IDW from server) ---------------- */
@@ -222,6 +235,9 @@ async function pollLatest(){
       if(r.moisture !== undefined) el('moistVal').textContent = r.moisture.toFixed(1) + ' %';
       if(r.temperature !== undefined) el('tempVal').textContent = r.temperature.toFixed(1) + ' °C';
       if(r.ec !== undefined) el('ecVal').textContent = r.ec.toFixed(2) + ' dS/m';
+      if(r.altitude !== undefined) el('altVal').textContent = r.altitude.toFixed(1) + ' m';
+      if(r.satellites !== undefined) el('satVal').textContent = Math.round(r.satellites);
+      if(r.hdop !== undefined) el('hdopVal').textContent = r.hdop.toFixed(2);
 
       const tag = statusTag(r.nitrogen, r.phosphorus, r.potassium);
       addLogRow(sampleIndex, r, tag);
@@ -481,6 +497,9 @@ async function takeSample() {
     if (r.moisture !== undefined && el('moistVal')) el('moistVal').textContent = r.moisture.toFixed(1) + ' %';
     if (r.temperature !== undefined && el('tempVal')) el('tempVal').textContent = r.temperature.toFixed(1) + ' °C';
     if (r.ec !== undefined && el('ecVal')) el('ecVal').textContent = r.ec.toFixed(2) + ' dS/m';
+    if (r.altitude !== undefined && el('altVal')) el('altVal').textContent = r.altitude.toFixed(1) + ' m';
+    if (r.satellites !== undefined && el('satVal')) el('satVal').textContent = Math.round(r.satellites);
+    if (r.hdop !== undefined && el('hdopVal')) el('hdopVal').textContent = r.hdop.toFixed(2);
   }
 
   resetSampleBtn(btn, btnText);

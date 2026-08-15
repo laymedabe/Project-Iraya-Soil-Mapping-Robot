@@ -11,6 +11,9 @@ Design notes
 - `SERIAL_SIMULATE=true` runs a fake Mega in-process (used for developing
   the web app on a laptop with no hardware attached), so the rest of the
   codebase does not need to branch on hardware availability.
+
+Data line format (from the real Arduino firmware):
+  DATA POINT=1 LAT=14.9985 LON=121.0001 ALT=45.20 SAT=8 HDOP=1.05 N=42.3 P=15.1
 """
 
 import threading
@@ -118,18 +121,30 @@ class MegaLink:
 
     @staticmethod
     def _parse_data_line(line: str) -> dict:
-        # "DATA N=42.3 P=15.1 K=118.6 MOIST=21.4 TEMP=27.1 EC=0.8"
+        """Parse the structured DATA line from the real Arduino firmware.
+
+        Format:
+          DATA POINT=1 LAT=14.9985 LON=121.0001 ALT=45.20 SAT=8 HDOP=1.05 N=42.3 P=15.1
+          Optional flags: NOFIX=1 (no GPS fix), NPKERR=1 (NPK sensor error), GPSONLY=1 (manual GPS capture)
+        """
         fields = line.split(" ")[1:]
         result = {}
         key_map = {
             "N": "nitrogen", "P": "phosphorus", "K": "potassium",
             "MOIST": "moisture", "TEMP": "temperature", "EC": "ec",
+            "LAT": "lat", "LON": "lon", "ALT": "altitude",
+            "SAT": "satellites", "HDOP": "hdop", "POINT": "point_id",
+            "NOFIX": "no_gps_fix", "NPKERR": "npk_error", "GPSONLY": "gps_only",
         }
         for f in fields:
             if "=" not in f:
                 continue
-            k, v = f.split("=")
-            result[key_map.get(k, k.lower())] = float(v)
+            k, v = f.split("=", 1)
+            mapped_key = key_map.get(k, k.lower())
+            try:
+                result[mapped_key] = float(v)
+            except ValueError:
+                result[mapped_key] = v
         return result
 
     def drain_events(self):
@@ -147,6 +162,14 @@ class MegaLink:
             time.sleep(0.2)
 
     def _handle_simulated_command(self, command: str):
+        """Simulate the real Arduino Mega behavior with realistic timing.
+
+        The simulation mirrors the actual firmware flow:
+        - DRIVE/STOP: immediate ACK
+        - SAMPLE: non-blocking actuator cycle (extend 3s → hold/read 5s → retract 3s)
+        - GOTO: immediate ACK + status transitions
+        - GPS coordinates are generated within the configured field bounds
+        """
         def emit(line):
             self._handle_line(line)
 
@@ -154,16 +177,40 @@ class MegaLink:
             emit("ACK " + command.split(" ")[0])
         elif command.startswith("SAMPLE"):
             emit("ACK SAMPLE")
-            for step, delay in [("LOWERING", 0.3), ("READING", 0.4), ("RAISED", 0.2)]:
-                time.sleep(delay)
-                emit(f"STATUS {step}")
+
+            # Simulate the real actuator cycle with realistic timing
+            # Extend phase (3 seconds)
+            emit("STATUS LOWERING")
+            time.sleep(1.5)  # Shortened for simulation (real = 3s)
+
+            # Hold phase — capture GPS + NPK data
+            emit("STATUS READING")
+            time.sleep(1.0)  # Shortened for simulation (real = 5s)
+
+            # Generate simulated GPS coordinates within field bounds
+            lat = Config.FIELD_LAT_MIN + random.random() * (Config.FIELD_LAT_MAX - Config.FIELD_LAT_MIN)
+            lon = Config.FIELD_LON_MIN + random.random() * (Config.FIELD_LON_MAX - Config.FIELD_LON_MIN)
+            alt = round(30 + random.random() * 50, 2)
+            sat = random.randint(5, 12)
+            hdop = round(0.7 + random.random() * 2.0, 2)
+
+            # Generate simulated NPK readings
             n = round(20 + random.random() * 60, 1)
             p = round(8 + random.random() * 30, 1)
-            k = round(60 + random.random() * 120, 1)
-            moist = round(15 + random.random() * 25, 1)
-            temp = round(25 + random.random() * 6, 1)
-            ec = round(0.4 + random.random() * 1.2, 2)
-            emit(f"DATA N={n} P={p} K={k} MOIST={moist} TEMP={temp} EC={ec}")
+
+            # Emit the structured DATA line matching the real firmware format
+            data_line = (
+                f"DATA POINT={random.randint(1,999)}"
+                f" LAT={lat:.6f} LON={lon:.6f} ALT={alt} SAT={sat} HDOP={hdop}"
+                f" N={n} P={p}"
+            )
+            emit(data_line)
+
+            # Retract phase (3 seconds)
+            emit("STATUS RETRACTING")
+            time.sleep(0.8)  # Shortened for simulation (real = 3s)
+
+            emit("STATUS IDLE")
         elif command.startswith("GOTO"):
             emit("ACK GOTO")
             emit("STATUS MOVING")

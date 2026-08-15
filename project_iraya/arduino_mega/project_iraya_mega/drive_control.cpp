@@ -5,36 +5,56 @@ static DriveDirection currentDirection = DRIVE_STOP;
 static uint8_t currentSpeed = 0;
 static unsigned long lastCommandMillis = 0;
 static bool watchdogTripped = false;
+static bool watchdogEnabled = false;  // Only active for serial (Pi) commands
 
 void driveInit() {
-  pinMode(LEFT_PWM_PIN, OUTPUT);
-  pinMode(LEFT_DIR_PIN, OUTPUT);
-  pinMode(RIGHT_PWM_PIN, OUTPUT);
-  pinMode(RIGHT_DIR_PIN, OUTPUT);
-  driveStopImmediate();
+  // Left motor driver pins
+  pinMode(L_RPWM, OUTPUT); pinMode(L_LPWM, OUTPUT);
+  pinMode(L_R_EN, OUTPUT); pinMode(L_L_EN, OUTPUT);
+
+  // Right motor driver pins
+  pinMode(R_RPWM, OUTPUT); pinMode(R_LPWM, OUTPUT);
+  pinMode(R_R_EN, OUTPUT); pinMode(R_L_EN, OUTPUT);
+
+  // Enable both BTS7960 drivers
+  digitalWrite(L_R_EN, HIGH); digitalWrite(L_L_EN, HIGH);
+  digitalWrite(R_R_EN, HIGH); digitalWrite(R_L_EN, HIGH);
+
+  motorStop();
 }
 
-// Skid-steer mixing: FWD/BACK drive both sides equally; LEFT/RIGHT are
-// implemented as a pivot turn (one side forward, one side reverse) rather
-// than just slowing one side — this gives a tighter turning radius, which
-// matters for headland turns between crop rows. If your chassis prefers
-// gentler arcs, change the "off side" speed below from -speed to +speed*0.3.
-static void applyMotors(int leftSpeed, int rightSpeed) {
-  digitalWrite(LEFT_DIR_PIN, leftSpeed >= 0 ? HIGH : LOW);
-  digitalWrite(RIGHT_DIR_PIN, rightSpeed >= 0 ? HIGH : LOW);
-  analogWrite(LEFT_PWM_PIN, constrain(abs(leftSpeed), 0, 255));
-  analogWrite(RIGHT_PWM_PIN, constrain(abs(rightSpeed), 0, 255));
+/*
+ * BTS7960 dual-channel motor control.
+ * Each side has RPWM (forward) and LPWM (reverse) — writing PWM to one
+ * while holding the other at 0 sets direction. This matches the real
+ * wiring from rccode.ino exactly.
+ */
+
+void motorForward(uint8_t speed) {
+  analogWrite(L_LPWM, 0); analogWrite(R_LPWM, 0);
+  analogWrite(L_RPWM, speed); analogWrite(R_RPWM, speed);
 }
 
-static void applyDriveState(DriveDirection dir, uint8_t speed) {
-  switch (dir) {
-    case DRIVE_FWD:   applyMotors(speed, speed); break;
-    case DRIVE_BACK:  applyMotors(-speed, -speed); break;
-    case DRIVE_LEFT:  applyMotors(-speed, speed); break;  // pivot left
-    case DRIVE_RIGHT: applyMotors(speed, -speed); break;  // pivot right
-    case DRIVE_STOP:
-    default:          applyMotors(0, 0); break;
-  }
+void motorBackward(uint8_t speed) {
+  analogWrite(L_RPWM, 0); analogWrite(R_RPWM, 0);
+  analogWrite(L_LPWM, speed); analogWrite(R_LPWM, speed);
+}
+
+void motorLeft(uint8_t speed) {
+  // Pivot left: left side reverse, right side forward
+  analogWrite(L_RPWM, 0); analogWrite(R_RPWM, 0);
+  analogWrite(L_LPWM, speed); analogWrite(R_RPWM, speed);
+}
+
+void motorRight(uint8_t speed) {
+  // Pivot right: left side forward, right side reverse
+  analogWrite(L_RPWM, 0); analogWrite(L_LPWM, 0);
+  analogWrite(L_RPWM, speed); analogWrite(R_LPWM, speed);
+}
+
+void motorStop() {
+  analogWrite(L_RPWM, 0); analogWrite(L_LPWM, 0);
+  analogWrite(R_RPWM, 0); analogWrite(R_LPWM, 0);
 }
 
 void driveSetCommand(DriveDirection dir, uint8_t speed) {
@@ -42,11 +62,21 @@ void driveSetCommand(DriveDirection dir, uint8_t speed) {
   currentSpeed = speed;
   lastCommandMillis = millis();
   watchdogTripped = false;
-  applyDriveState(currentDirection, currentSpeed);
+  watchdogEnabled = true;  // Watchdog active for serial-originated commands
+
+  switch (dir) {
+    case DRIVE_FWD:   motorForward(speed); break;
+    case DRIVE_BACK:  motorBackward(speed); break;
+    case DRIVE_LEFT:  motorLeft(speed); break;
+    case DRIVE_RIGHT: motorRight(speed); break;
+    case DRIVE_STOP:
+    default:          motorStop(); watchdogEnabled = false; break;
+  }
 }
 
 void driveWatchdogTick() {
-  if (currentDirection == DRIVE_STOP) return; // nothing to watch
+  if (!watchdogEnabled) return;
+  if (currentDirection == DRIVE_STOP) return;
   if (millis() - lastCommandMillis > DRIVE_WATCHDOG_TIMEOUT_MS) {
     if (!watchdogTripped) {
       driveStopImmediate();
@@ -59,5 +89,6 @@ void driveWatchdogTick() {
 void driveStopImmediate() {
   currentDirection = DRIVE_STOP;
   currentSpeed = 0;
-  applyMotors(0, 0);
+  watchdogEnabled = false;
+  motorStop();
 }

@@ -145,20 +145,31 @@ def latest_state(session_id):
         if evt["type"] == "data":
             payload = evt["payload"]
             waypoint = models.get_next_waypoint(session_id)  # the one just completed
-            # NOTE: in a fuller implementation, track "in-flight" waypoint id
-            # explicitly rather than re-querying; simplified here for clarity.
             wp_id = waypoint["id"] if waypoint else None
-            lat = float(waypoint["lat"]) if waypoint else Config.FIELD_LAT_MIN
-            lon = float(waypoint["lon"]) if waypoint else Config.FIELD_LON_MIN
+
+            # Prefer actual GPS coordinates from the Mega over planned waypoint coords
+            if payload.get("lat") and payload.get("lon") and not payload.get("no_gps_fix"):
+                lat = float(payload["lat"])
+                lon = float(payload["lon"])
+            else:
+                lat = float(waypoint["lat"]) if waypoint else Config.FIELD_LAT_MIN
+                lon = float(waypoint["lon"]) if waypoint else Config.FIELD_LON_MIN
 
             reading_id = models.insert_reading(
                 session_id, wp_id, lat, lon,
-                payload.get("nitrogen"), payload.get("phosphorus"), payload.get("potassium"),
+                payload.get("nitrogen", 0), payload.get("phosphorus", 0),
+                payload.get("potassium", 0),
                 payload.get("moisture"), payload.get("temperature"), payload.get("ec"),
+                altitude=payload.get("altitude"),
+                satellites=int(payload["satellites"]) if payload.get("satellites") is not None else None,
+                hdop=payload.get("hdop"),
             )
             if wp_id:
                 models.mark_waypoint_visited(wp_id)
-            new_readings.append({"id": reading_id, **payload, "lat": lat, "lon": lon})
+            new_readings.append({
+                "id": reading_id, **payload,
+                "lat": lat, "lon": lon,
+            })
         elif evt["type"] == "fault":
             models.log_event("fault", "mega", evt["payload"], session_id)
 

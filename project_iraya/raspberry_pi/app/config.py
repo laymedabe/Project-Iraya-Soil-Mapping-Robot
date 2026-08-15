@@ -19,7 +19,7 @@ class Config:
 
     # --- Serial link to Arduino Mega ---
     SERIAL_PORT = os.environ.get("IRAYA_SERIAL_PORT", "/dev/ttyACM0")
-    SERIAL_BAUD = int(os.environ.get("IRAYA_SERIAL_BAUD", "115200"))
+    SERIAL_BAUD = int(os.environ.get("IRAYA_SERIAL_BAUD", "9600"))
     SERIAL_TIMEOUT = float(os.environ.get("IRAYA_SERIAL_TIMEOUT", "0.1"))
     # Set to true on a dev machine with no Mega attached — serial_comm.py
     # will log commands instead of writing to a real port.

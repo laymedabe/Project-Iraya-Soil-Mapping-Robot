@@ -62,6 +62,9 @@ def _init_sqlite_tables(conn):
             moisture REAL NULL,
             temperature REAL NULL,
             ec REAL NULL,
+            altitude REAL NULL,
+            satellites INTEGER NULL,
+            hdop REAL NULL,
             battery_pct REAL NULL,
             synced_to_cloud INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
@@ -258,16 +261,20 @@ def get_waypoints(session_id):
 # ---------------------------------------------------------------- readings
 
 def insert_reading(session_id, waypoint_id, lat, lon, n, p, k,
-                    moisture=None, temperature=None, ec=None, battery_pct=None):
+                    moisture=None, temperature=None, ec=None,
+                    altitude=None, satellites=None, hdop=None,
+                    battery_pct=None):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO readings
                    (session_id, waypoint_id, lat, lon, nitrogen, phosphorus,
-                    potassium, moisture, temperature, ec, battery_pct)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    potassium, moisture, temperature, ec,
+                    altitude, satellites, hdop, battery_pct)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (session_id, waypoint_id, lat, lon, n, p, k,
-                 moisture, temperature, ec, battery_pct),
+                 moisture, temperature, ec,
+                 altitude, satellites, hdop, battery_pct),
             )
             return cur.lastrowid
 
