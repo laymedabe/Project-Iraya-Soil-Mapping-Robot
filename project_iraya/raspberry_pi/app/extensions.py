@@ -8,6 +8,6 @@ so other modules — serial_comm.py, sockets.py, routes — can import
 
 from flask_socketio import SocketIO
 
-# eventlet gives us non-blocking serial reads + WebSocket handling on a
-# single Pi core without needing a separate process/queue broker.
-socketio = SocketIO(async_mode="eventlet", cors_allowed_origins="*")
+# Standard threading gives us non-blocking serial reads + WebSocket handling
+# since eventlet monkey-patching is incompatible with Python 3.13.
+socketio = SocketIO(async_mode="threading", cors_allowed_origins="*")
