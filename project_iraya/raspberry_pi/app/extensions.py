@@ -10,4 +10,4 @@ from flask_socketio import SocketIO
 
 # Standard threading gives us non-blocking serial reads + WebSocket handling
 # since eventlet monkey-patching is incompatible with Python 3.13.
-socketio = SocketIO(async_mode="threading", cors_allowed_origins="*")
+socketio = SocketIO(cors_allowed_origins="*")
