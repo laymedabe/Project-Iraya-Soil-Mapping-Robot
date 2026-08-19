@@ -4,5 +4,5 @@ python-socketio==5.11.2
 eventlet==0.36.1
 pyserial==3.5
 PyMySQL==1.1.0
-numpy==1.26.4
+numpy
 python-dotenv==1.0.1
