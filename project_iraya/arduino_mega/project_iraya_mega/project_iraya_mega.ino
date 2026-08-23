@@ -67,7 +67,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ESTOP_PIN), estopISR, FALLING);
 
   PI_SERIAL.println(F("=========================================================="));
-  PI_SERIAL.println(F("    PROJECT OROSA — SMART NPK SOIL MAPPING ROBOT          "));
+  PI_SERIAL.println(F("  DUTA: Digitalized Unified Terrain Assessment            "));
   PI_SERIAL.println(F("    Unified Firmware (IR + Serial + GPS Capture)           "));
   PI_SERIAL.println(F("=========================================================="));
   PI_SERIAL.println(F("Controls:"));
