@@ -25,6 +25,16 @@ class Config:
     # will log commands instead of writing to a real port.
     SERIAL_SIMULATE = os.environ.get("IRAYA_SERIAL_SIMULATE", "false").lower() == "true"
 
+    # --- GPS (NEO-M8) ---
+    GPS_PORT = os.environ.get("IRAYA_GPS_PORT", "/dev/ttyAMA0")
+    GPS_BAUD = int(os.environ.get("IRAYA_GPS_BAUD", "9600"))
+    GPS_SIMULATE = os.environ.get("IRAYA_GPS_SIMULATE", "false").lower() == "true"
+
+    # --- NPK Sensor (RS485 Modbus TTL) ---
+    NPK_PORT = os.environ.get("IRAYA_NPK_PORT", "/dev/ttyUSB0")
+    NPK_BAUD = int(os.environ.get("IRAYA_NPK_BAUD", "9600"))
+    NPK_SIMULATE = os.environ.get("IRAYA_NPK_SIMULATE", "false").lower() == "true"
+
     # --- Drive safety ---
     DRIVE_HEARTBEAT_TIMEOUT_S = 0.5   # server-side: stop if no heartbeat in this window
 

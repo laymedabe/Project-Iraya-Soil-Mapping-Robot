@@ -17,34 +17,41 @@
  *   - IR receiver (IRremote library)
  *
  * Serial protocol to Pi:
- *   Pi → Mega:  DRIVE FWD 200 | STOP | SAMPLE | GOTO lat lon
+ *   Pi → Mega:  DRIVE FWD 200 | STOP | SAMPLE | GOTO lat lon | START_AUTO | STOP_AUTO
  *   Mega → Pi:  ACK ... | STATUS ... | DATA ... | FAULT ...
  *
  * Required libraries: IRremote, TinyGPS++
  */
 
 #include <IRremote.hpp>
-#include <TinyGPS++.h>
 #include "config.h"
 #include "drive_control.h"
 #include "actuator_control.h"
-#include "npk_sensor.h"
 
 // =========================================================================
-// GPS & STATE
+// STATE
 // =========================================================================
-
-TinyGPSPlus gps;
-int pointCount = 0;  // Incremental ID for logged soil/GPS points
 
 volatile bool estopTriggered = false;
+
+// =========================================================================
+// AUTO-CYCLE STATE MACHINE
+// =========================================================================
+// Cycle: drive forward 10s → stop → sample (actuator + NPK/GPS) → repeat
+
+enum AutoCycleState { AUTO_OFF, AUTO_DRIVING, AUTO_SAMPLING };
+AutoCycleState autoCycleState = AUTO_OFF;
+unsigned long autoDriveStart = 0;
 
 // =========================================================================
 // INTERRUPT: E-STOP
 // =========================================================================
 
+void stopAutoCycle();
+
 void estopISR() {
   estopTriggered = true;
+  autoCycleState = AUTO_OFF;  // Cancel auto mode on E-STOP
   driveStopImmediate();
 }
 
@@ -54,28 +61,22 @@ void estopISR() {
 
 void setup() {
   PI_SERIAL.begin(PI_BAUD);     // USB to Pi / Serial Monitor (9600)
-  RS485_SERIAL.begin(NPK_BAUD); // NPK Sensor via MAX485 (9600)
-  GPS_SERIAL.begin(GPS_BAUD);   // NEO-M8 GPS module (9600)
 
   IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
 
   driveInit();
   actuatorInit();
-  npkInit();
 
   pinMode(ESTOP_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(ESTOP_PIN), estopISR, FALLING);
 
   PI_SERIAL.println(F("=========================================================="));
   PI_SERIAL.println(F("  DUTA: Digitalized Unified Terrain Assessment            "));
-  PI_SERIAL.println(F("    Unified Firmware (IR + Serial + GPS Capture)           "));
+  PI_SERIAL.println(F("    Unified Firmware (IR + Serial)                         "));
   PI_SERIAL.println(F("=========================================================="));
   PI_SERIAL.println(F("Controls:"));
   PI_SERIAL.println(F("  IR Remote : FWD/BACK/LEFT/RIGHT/STOP/ACTUATE buttons"));
-  PI_SERIAL.println(F("  Serial    : DRIVE FWD 200 | STOP | SAMPLE | GOTO lat lon"));
-  PI_SERIAL.println(F("  Type 'c'  : Capture current GPS position (manual point)"));
-  PI_SERIAL.println(F("----------------------------------------------------------"));
-  PI_SERIAL.println(F("CSV Format: Point_ID, Lat, Lon, Alt_m, Sats, HDOP, NPK_Data"));
+  PI_SERIAL.println(F("  Serial    : DRIVE FWD 200 | STOP | SAMPLE | START_AUTO | STOP_AUTO"));
   PI_SERIAL.println(F("----------------------------------------------------------"));
   PI_SERIAL.println("STATUS IDLE");
 }
@@ -85,16 +86,17 @@ void setup() {
 // =========================================================================
 
 void loop() {
-  // 1. Continuously feed raw GPS stream to TinyGPS++ parser
-  while (GPS_SERIAL.available() > 0) {
-    gps.encode(GPS_SERIAL.read());
+  // 1. Drive watchdog (only for serial-originated manual commands)
+  if (autoCycleState == AUTO_OFF) {
+    driveWatchdogTick();
   }
 
-  // 2. Drive watchdog (only for serial-originated commands)
-  driveWatchdogTick();
+  // 2. Auto-cycle state machine tick
+  autoCycleTick();
 
   // 3. E-STOP reporting
   if (estopTriggered) {
+    stopAutoCycle();
     PI_SERIAL.println("FAULT ESTOP_TRIGGERED");
     estopTriggered = false;
   }
@@ -115,22 +117,22 @@ void loop() {
     String line = PI_SERIAL.readStringUntil('\n');
     line.trim();
     if (line.length() > 0) {
-      // Check for single-char GPS capture command (from gps.ino)
-      if (line.length() == 1 && (line.charAt(0) == 'c' || line.charAt(0) == 'C')) {
-        captureGPSPosition();
-      } else {
-        handleSerialCommand(line);
-      }
+      handleSerialCommand(line);
     }
   }
 
   // 6. Process non-blocking actuator state machine
-  //    During HOLDING state, perform data capture if not yet done
-  if (getActuatorState() == ACT_HOLDING && !samplingCompleted) {
-    captureSoilAndGPSData();
-    samplingCompleted = true;
-  }
   updateActuatorSequence();
+
+  // 7. If auto-cycle is sampling and actuator just returned to IDLE,
+  //    transition back to driving for the next leg
+  if (autoCycleState == AUTO_SAMPLING && getActuatorState() == ACT_IDLE) {
+    PI_SERIAL.println(F(">> Auto-cycle: sample complete, resuming drive..."));
+    PI_SERIAL.println("STATUS AUTO_DRIVING");
+    motorForward(MOTOR_SPEED);
+    autoDriveStart = millis();
+    autoCycleState = AUTO_DRIVING;
+  }
 }
 
 // =========================================================================
@@ -147,12 +149,12 @@ void handleIRCommand(unsigned long code) {
   } else if (code == IR_RIGHT) {
     motorRight(MOTOR_SPEED);
   } else if (code == IR_STOP) {
+    stopAutoCycle();  // Cancel auto mode if active
     motorStop();
     stopActuatorRelay();
-    // If actuator was mid-cycle, force it back to idle
   } else if (code == IR_ACTUATE && getActuatorState() == ACT_IDLE) {
     motorStop();  // Lock wheels during sampling
-    PI_SERIAL.println(F("\n>> COMMAND RECEIVED: Lowering probe and capturing soil coordinates..."));
+    PI_SERIAL.println(F("\n>> COMMAND RECEIVED: Lowering probe..."));
     PI_SERIAL.println("ACK SAMPLE");
     PI_SERIAL.println("STATUS LOWERING");
     startActuatorExtend();
@@ -167,9 +169,24 @@ void handleSerialCommand(String line) {
   if (line.startsWith("DRIVE")) {
     handleDriveCommand(line);
   } else if (line == "STOP") {
+    stopAutoCycle();  // Cancel auto mode if active
     driveStopImmediate();
     stopActuatorRelay();
     PI_SERIAL.println("ACK STOP");
+  } else if (line == "START_AUTO") {
+    if (autoCycleState != AUTO_OFF) {
+      PI_SERIAL.println("FAULT AUTO_ALREADY_RUNNING");
+      return;
+    }
+    PI_SERIAL.println("ACK START_AUTO");
+    PI_SERIAL.println(F(">> Auto-cycle started: drive 10s → sample → repeat"));
+    PI_SERIAL.println("STATUS AUTO_DRIVING");
+    motorForward(MOTOR_SPEED);
+    autoDriveStart = millis();
+    autoCycleState = AUTO_DRIVING;
+  } else if (line == "STOP_AUTO") {
+    stopAutoCycle();
+    PI_SERIAL.println("ACK STOP_AUTO");
   } else if (line.startsWith("GOTO")) {
     // Coarse-grained waypoint notification for status/logging purposes.
     // Actual navigation is driven by the Pi issuing a stream of DRIVE
@@ -210,127 +227,31 @@ void handleDriveCommand(String line) {
 }
 
 // =========================================================================
-// DATA CAPTURE: GPS + NPK SOIL READING
+// AUTO-CYCLE HELPERS
 // =========================================================================
 
-void captureSoilAndGPSData() {
-  pointCount++;
-
-  PI_SERIAL.println(F("\n--- [ DATA LOG MAP ROW ] ---"));
-
-  // Emit structured DATA line for the Pi's serial_comm.py parser
-  PI_SERIAL.print(F("DATA POINT="));
-  PI_SERIAL.print(pointCount);
-
-  // GPS coordinates
-  if (gps.location.isValid()) {
-    PI_SERIAL.print(F(" LAT="));
-    PI_SERIAL.print(gps.location.lat(), 6);
-    PI_SERIAL.print(F(" LON="));
-    PI_SERIAL.print(gps.location.lng(), 6);
-    PI_SERIAL.print(F(" ALT="));
-    PI_SERIAL.print(gps.altitude.meters(), 2);
-    PI_SERIAL.print(F(" SAT="));
-    PI_SERIAL.print(gps.satellites.value());
-    PI_SERIAL.print(F(" HDOP="));
-    if (gps.hdop.isValid()) {
-      PI_SERIAL.print(gps.hdop.hdop(), 2);
-    } else {
-      PI_SERIAL.print(F("0"));
+void autoCycleTick() {
+  if (autoCycleState == AUTO_DRIVING) {
+    // Check if the 10-second drive interval has elapsed
+    if (millis() - autoDriveStart >= AUTO_DRIVE_INTERVAL_MS) {
+      PI_SERIAL.println(F(">> Auto-cycle: 10s drive complete, stopping to sample..."));
+      motorStop();
+      PI_SERIAL.println("STATUS AUTO_SAMPLING");
+      PI_SERIAL.println("STATUS LOWERING");
+      startActuatorExtend();
+      autoCycleState = AUTO_SAMPLING;
     }
-  } else {
-    PI_SERIAL.print(F(" LAT=0 LON=0 ALT=0 SAT=0 HDOP=0 NOFIX=1"));
   }
-
-  // Query NPK sensor
-  NpkReading npk = npkRead();
-
-  if (npk.valid) {
-    PI_SERIAL.print(F(" N="));
-    PI_SERIAL.print(npk.nitrogen, 1);
-    PI_SERIAL.print(F(" P="));
-    PI_SERIAL.print(npk.phosphorus, 1);
-  } else {
-    PI_SERIAL.print(F(" N=0 P=0 NPKERR=1"));
-  }
-
-  PI_SERIAL.println();
-
-  // Also emit the CSV-style log line for human-readable Serial Monitor
-  // (matches the format from rccode.ino)
-  PI_SERIAL.print(F("CSV_LOG: "));
-  PI_SERIAL.print(pointCount);
-  PI_SERIAL.print(F(","));
-
-  if (gps.location.isValid()) {
-    PI_SERIAL.print(gps.location.lat(), 6);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.location.lng(), 6);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.altitude.meters(), 2);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.satellites.value());
-    PI_SERIAL.print(F(","));
-    if (gps.hdop.isValid()) {
-      PI_SERIAL.print(gps.hdop.hdop(), 2);
-    } else {
-      PI_SERIAL.print(F("N/A"));
-    }
-  } else {
-    PI_SERIAL.print(F("NO_GPS_FIX,NO_GPS_FIX,0.0,0,N/A"));
-  }
-
-  PI_SERIAL.print(F(",NPK_DATA: "));
-  npkPrintRawHex(npk);
-  PI_SERIAL.println();
+  // AUTO_SAMPLING → AUTO_DRIVING transition is handled in the main loop
+  // (after actuator returns to IDLE)
 }
 
-// =========================================================================
-// MANUAL GPS POSITION CAPTURE (merged from gps.ino)
-// =========================================================================
-
-void captureGPSPosition() {
-  if (gps.location.isValid()) {
-    pointCount++;
-
-    // Structured line for Pi
-    PI_SERIAL.print(F("DATA POINT="));
-    PI_SERIAL.print(pointCount);
-    PI_SERIAL.print(F(" LAT="));
-    PI_SERIAL.print(gps.location.lat(), 6);
-    PI_SERIAL.print(F(" LON="));
-    PI_SERIAL.print(gps.location.lng(), 6);
-    PI_SERIAL.print(F(" ALT="));
-    PI_SERIAL.print(gps.altitude.meters(), 2);
-    PI_SERIAL.print(F(" SAT="));
-    PI_SERIAL.print(gps.satellites.value());
-    PI_SERIAL.print(F(" HDOP="));
-    if (gps.hdop.isValid()) {
-      PI_SERIAL.print(gps.hdop.hdop(), 2);
-    } else {
-      PI_SERIAL.print(F("0"));
-    }
-    PI_SERIAL.print(F(" N=0 P=0 GPSONLY=1"));
-    PI_SERIAL.println();
-
-    // Human-readable CSV line
-    PI_SERIAL.print(F("GPS_LOG: "));
-    PI_SERIAL.print(pointCount);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.location.lat(), 6);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.location.lng(), 6);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.altitude.meters(), 2);
-    PI_SERIAL.print(F(","));
-    PI_SERIAL.print(gps.satellites.value());
-    PI_SERIAL.print(F(","));
-    if (gps.hdop.isValid()) {
-      PI_SERIAL.println(gps.hdop.hdop(), 2);
-    } else {
-      PI_SERIAL.println(F("N/A"));
-    }
-  } else {
-    PI_SERIAL.println(F("[ERROR] Cannot log point: No valid 3D GPS fix acquired yet."));
+void stopAutoCycle() {
+  if (autoCycleState != AUTO_OFF) {
+    autoCycleState = AUTO_OFF;
+    motorStop();
+    stopActuatorRelay();
+    PI_SERIAL.println(F(">> Auto-cycle stopped."));
+    PI_SERIAL.println("STATUS IDLE");
   }
 }

@@ -28,14 +28,7 @@
 #define RELAY_ACT_1  22   // Controls Actuator Lead 1
 #define RELAY_ACT_2  23   // Controls Actuator Lead 2
 
-// ---- RS485 NPK sensor (MAX485 module on Serial1, pins 18/19) ----
-#define DE_RE_PIN       24     // MAX485 driver enable / receiver enable
-#define RS485_SERIAL    Serial1
-#define NPK_BAUD        9600
 
-// ---- GPS Module (NEO-M8 on Serial2, pins 16/17) ----
-#define GPS_SERIAL      Serial2
-#define GPS_BAUD        9600
 
 // ---- Physical E-STOP input (also wired directly into motor driver enable — this pin is just for status reporting) ----
 #define ESTOP_PIN       3      // interrupt-capable pin (pin 2 is used by R_L_EN)
@@ -52,6 +45,9 @@
 
 // ---- Safety tuning ----
 #define DRIVE_WATCHDOG_TIMEOUT_MS  400  // Stop if no drive command in this window
+
+// ---- Auto-cycle timing ----
+#define AUTO_DRIVE_INTERVAL_MS   10000  // Drive for 10s between each sample stop
 
 // ---- IR Remote HEX Commands ----
 #define IR_FORWARD   0xB946FF00

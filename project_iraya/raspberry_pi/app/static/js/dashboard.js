@@ -30,7 +30,7 @@ function setGaugeDepth(mm){
 }
 function setStepUI(step){
   el('stepLabel').textContent = step;
-  const live = ['MOVING','LOWERING','READING','RETRACTING','ALIGNED'].includes(step);
+  const live = ['MOVING','LOWERING','READING','RETRACTING','ALIGNED','AUTO_DRIVING','AUTO_SAMPLING'].includes(step);
   el('stepDot').className = 'dot ' + (live ? 'live' : 'idle');
 
   // Phase-based actuator gauge (relay-timed, no mm feedback)
@@ -198,21 +198,12 @@ async function startSession(){
   el('sampleCount').textContent = `0 / ${waypointCount}`;
   el('logSub').textContent = `· 0 of ${waypointCount} points collected`;
   running = true;
-  requestNextSample();
+  // Navigator on the server drives the waypoint cycle — we just poll for updates
+  setStepUI('AUTO_DRIVING');
   pollTimer = setInterval(pollLatest, 1500);
 }
 
-async function requestNextSample(){
-  if(!running || !sessionId) return;
-  const resp = await fetch(`/api/session/${sessionId}/sample`, {method:'POST'});
-  const data = await resp.json();
-  if(data.done){
-    finishRun();
-    return;
-  }
-  setStepUI('MOVING');
-  el('gpsVal').textContent = `${data.lat.toFixed(4)}, ${data.lon.toFixed(4)}`;
-}
+
 
 async function pollLatest(){
   if(!sessionId) return;
@@ -255,10 +246,13 @@ async function pollLatest(){
     el('sampleCount').textContent = `${sampleIndex} / ${waypointCount}`;
     el('logSub').textContent = `· ${sampleIndex} of ${waypointCount} points collected`;
 
-    // refresh map + advance to next waypoint
+    // refresh map
     refreshMap();
-    if(sampleIndex >= waypointCount){ finishRun(); }
-    else { requestNextSample(); }
+  }
+
+  // Check if navigation completed server-side
+  if(running && data.mega_step === 'IDLE' && sampleIndex >= waypointCount && waypointCount > 0){
+    finishRun();
   }
 }
 

@@ -35,8 +35,4 @@ ActuatorState getActuatorState();
 // Returns a human-readable label for the current state.
 const char* getActuatorStateLabel();
 
-// Flag indicating whether data capture has been performed during HOLD.
-// Reset when a new cycle starts via startActuatorExtend().
-extern bool samplingCompleted;
-
 #endif

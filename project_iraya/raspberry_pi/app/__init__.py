@@ -27,9 +27,14 @@ def create_app():
     # SocketIO handlers register themselves via decorators on import
     from app import sockets  # noqa: F401
 
+    from app.gps_reader import gps_reader
+    from app.npk_reader import npk_reader
+
     socketio.init_app(app)
 
-    # Start the Mega serial link once, at process startup
+    # Start the hardware links once, at process startup
     mega_link.start()
+    gps_reader.start()
+    npk_reader.start()
 
     return app

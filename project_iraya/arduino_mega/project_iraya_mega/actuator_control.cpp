@@ -3,7 +3,6 @@
 
 static ActuatorState actState = ACT_IDLE;
 static unsigned long actTimer = 0;
-bool samplingCompleted = false;
 
 void actuatorInit() {
   pinMode(RELAY_ACT_1, OUTPUT);
@@ -14,7 +13,6 @@ void actuatorInit() {
 void startActuatorExtend() {
   actState = ACT_EXTENDING;
   actTimer = millis();
-  samplingCompleted = false;
 
   // Extend Actuator (Active-LOW Relays)
   // Lead 1 → +12V (relay ON = LOW), Lead 2 → GND (relay OFF = HIGH)
@@ -36,8 +34,8 @@ void updateActuatorSequence() {
       break;
 
     case ACT_HOLDING:
-      // Data capture happens in the main .ino during this state
-      // (checks samplingCompleted flag)
+      // Data capture is handled by the Raspberry Pi during this state
+      // (The Pi observes STATUS READING)
 
       // Hold probe extended in soil for the configured duration
       if (millis() - actTimer >= ACTUATOR_HOLD_TIME_MS) {

@@ -16,12 +16,16 @@ import logging
 from flask import Blueprint, jsonify, request
 from app import models
 from app.serial_comm import mega_link
+from app.navigator import Navigator
 from app.interpolation import idw_interpolate
 from app.config import Config
 from app import state
 
 logger = logging.getLogger("iraya.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
+
+# Module-level navigator instance
+_navigator = Navigator(mega_link)
 
 
 def _generate_boustrophedon_path(lat_min, lat_max, lon_min, lon_max, rows=4, cols=5):
@@ -64,8 +68,36 @@ def start_session():
         state.auto_task["current_waypoint_index"] = 0
         state.auto_task["total_waypoints"] = len(path)
 
+    # Build waypoint list with IDs for the navigator
+    db_waypoints = models.get_waypoints(session_id)
+
+    # Start GPS-guided navigation through waypoints
+    _navigator.start(
+        session_id,
+        db_waypoints,
+        on_sample_complete=_on_sample_complete,
+        on_navigation_done=_on_navigation_done,
+    )
+
     logger.info(f"Mode \u2192 AUTO (session {session_id})")
     return jsonify({"session_id": session_id, "waypoint_count": len(path)}), 201
+
+
+def _on_sample_complete(session_id, waypoint, gps_reading):
+    """Called by the Navigator after each successful sample."""
+    with state.mode_lock:
+        state.auto_task["current_waypoint_index"] += 1
+
+
+def _on_navigation_done(session_id):
+    """Called by the Navigator when all waypoints are visited or cancelled."""
+    with state.mode_lock:
+        if state.current_mode == "auto" and state.auto_task.get("session_id") == session_id:
+            state.current_mode = "idle"
+            state.auto_task["session_id"] = None
+            models.update_session_status(session_id, "completed")
+            models.log_event("info", "navigator", f"Session {session_id} completed (all waypoints)", session_id)
+            logger.info(f"Session {session_id} auto-completed by navigator")
 
 
 @api_bp.route("/session/<int:session_id>/stop", methods=["POST"])
@@ -75,10 +107,10 @@ def stop_session(session_id):
     if final_status not in ("completed", "aborted"):
         final_status = "completed"
     models.update_session_status(session_id, final_status)
-    try:
-        mega_link.send_command("STOP")
-    except Exception as exc:
-        logger.error(f"Failed to send STOP on session stop: {exc}")
+
+    # Stop the GPS navigator (which sends STOP to the Mega)
+    _navigator.stop()
+
     models.log_event("info", "api", f"Session {session_id} {final_status}", session_id)
     
     with state.mode_lock:
