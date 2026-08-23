@@ -187,6 +187,15 @@ def create_session(field_name, lat_min, lat_max, lon_min, lon_max):
             )
             return cur.lastrowid
 
+def get_or_create_default_session():
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM sessions WHERE field_name='Manual Spot Checks' LIMIT 1")
+            row = cur.fetchone()
+            if row: return row['id']
+            cur.execute("INSERT INTO sessions (field_name) VALUES ('Manual Spot Checks')")
+            return cur.lastrowid
+
 
 def update_session_status(session_id, status):
     with get_db() as conn:
@@ -286,6 +295,12 @@ def get_readings(session_id):
                 "SELECT * FROM readings WHERE session_id=%s ORDER BY recorded_at",
                 (session_id,),
             )
+            return cur.fetchall()
+
+def get_all_readings():
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM readings ORDER BY recorded_at")
             return cur.fetchall()
 
 

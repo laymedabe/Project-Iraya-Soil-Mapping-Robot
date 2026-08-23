@@ -108,12 +108,59 @@ class MegaLink:
     def _handle_line(self, line: str):
         logger.debug(f"[MEGA->PI] {line}")
         if line.startswith("STATUS"):
-            self.state["step"] = line.split(" ", 1)[1] if " " in line else line
+            step = line.split(" ", 1)[1] if " " in line else line
+            
+            # Automatically capture a sample when the physical remote triggers READING
+            if step == "READING" and self.state["step"] != "READING":
+                threading.Thread(target=self._capture_sample, daemon=True).start()
+                
+            self.state["step"] = step
         elif line.startswith("FAULT"):
             self.state["last_fault"] = line
             self._event_queue.put({"type": "fault", "payload": line})
         elif line.startswith("ACK"):
             pass  # command acknowledged, nothing to do beyond logging
+
+    def _capture_sample(self):
+        """Called automatically when Uno enters READING state (e.g. via IR remote)"""
+        try:
+            from app.gps_reader import gps_reader
+            from app.npk_reader import npk_reader
+            from app import models
+            
+            time.sleep(1.5) # Let sensors stabilize
+            
+            gps = gps_reader.get_position()
+            npk = npk_reader.read_npk()
+            
+            session_id = models.get_or_create_default_session()
+            reading_id = models.insert_reading(
+                session_id, None, gps["lat"], gps["lon"],
+                npk["nitrogen"] if npk else 0,
+                npk["phosphorus"] if npk else 0,
+                npk["potassium"] if npk else 0,
+                altitude=gps.get("alt"),
+                satellites=gps.get("sats"),
+                hdop=gps.get("hdop")
+            )
+            
+            self._event_queue.put({
+                "type": "data",
+                "payload": {
+                    "id": reading_id,
+                    "lat": gps["lat"], "lon": gps["lon"],
+                    "nitrogen": npk["nitrogen"] if npk else 0,
+                    "phosphorus": npk["phosphorus"] if npk else 0,
+                    "potassium": npk["potassium"] if npk else 0,
+                    "altitude": gps.get("alt"),
+                    "satellites": gps.get("sats"),
+                    "hdop": gps.get("hdop")
+                }
+            })
+            
+            logger.info(f"Auto-captured manual sample to DB (Reading ID: {reading_id})")
+        except Exception as e:
+            logger.error(f"Failed to auto-capture sample: {e}")
 
     def drain_events(self):
         """Pop all queued events (called by the API layer, non-blocking)."""

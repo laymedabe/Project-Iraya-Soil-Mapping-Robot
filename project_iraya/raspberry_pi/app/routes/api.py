@@ -16,7 +16,6 @@ import logging
 from flask import Blueprint, jsonify, request
 from app import models
 from app.serial_comm import mega_link
-from app.navigator import Navigator
 from app.interpolation import idw_interpolate
 from app.config import Config
 from app import state
@@ -24,206 +23,45 @@ from app import state
 logger = logging.getLogger("iraya.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
-# Module-level navigator instance
-_navigator = Navigator(mega_link)
 
 
-def _generate_boustrophedon_path(lat_min, lat_max, lon_min, lon_max, rows=4, cols=5):
-    """Back-and-forth sampling path — matches the field-map layout used
-    in the dashboard prototype and minimizes travel distance vs. a
-    raster (always-left-to-right) pattern."""
-    points = []
-    for r in range(rows):
-        row_cols = range(cols) if r % 2 == 0 else reversed(range(cols))
-        lat = lat_max - (r / max(rows - 1, 1)) * (lat_max - lat_min)
-        for c in row_cols:
-            lon = lon_min + (c / max(cols - 1, 1)) * (lon_max - lon_min)
-            points.append((lat, lon))
-    return points
 
 
-@api_bp.route("/session/start", methods=["POST"])
-def start_session():
-    with state.mode_lock:
-        if state.current_mode != "idle":
-            return jsonify({"error": f"Cannot start session, system is in {state.current_mode} mode"}), 409
-        
-    body = request.get_json(silent=True) or {}
-    field_name = body.get("field_name", "Unnamed Field")
-    lat_min = body.get("lat_min", Config.FIELD_LAT_MIN)
-    lat_max = body.get("lat_max", Config.FIELD_LAT_MAX)
-    lon_min = body.get("lon_min", Config.FIELD_LON_MIN)
-    lon_max = body.get("lon_max", Config.FIELD_LON_MAX)
-    rows = int(body.get("rows", 4))
-    cols = int(body.get("cols", 5))
-
-    session_id = models.create_session(field_name, lat_min, lat_max, lon_min, lon_max)
-    path = _generate_boustrophedon_path(lat_min, lat_max, lon_min, lon_max, rows, cols)
-    models.bulk_insert_waypoints(session_id, path)
-    models.log_event("info", "api", f"Session {session_id} started ({len(path)} waypoints)", session_id)
-
-    with state.mode_lock:
-        state.current_mode = "auto"
-        state.auto_task["session_id"] = session_id
-        state.auto_task["current_waypoint_index"] = 0
-        state.auto_task["total_waypoints"] = len(path)
-
-    # Build waypoint list with IDs for the navigator
-    db_waypoints = models.get_waypoints(session_id)
-
-    # Start GPS-guided navigation through waypoints
-    _navigator.start(
-        session_id,
-        db_waypoints,
-        on_sample_complete=_on_sample_complete,
-        on_navigation_done=_on_navigation_done,
-    )
-
-    logger.info(f"Mode \u2192 AUTO (session {session_id})")
-    return jsonify({"session_id": session_id, "waypoint_count": len(path)}), 201
-
-
-def _on_sample_complete(session_id, waypoint, gps_reading):
-    """Called by the Navigator after each successful sample."""
-    with state.mode_lock:
-        state.auto_task["current_waypoint_index"] += 1
-
-
-def _on_navigation_done(session_id):
-    """Called by the Navigator when all waypoints are visited or cancelled."""
-    with state.mode_lock:
-        if state.current_mode == "auto" and state.auto_task.get("session_id") == session_id:
-            state.current_mode = "idle"
-            state.auto_task["session_id"] = None
-            models.update_session_status(session_id, "completed")
-            models.log_event("info", "navigator", f"Session {session_id} completed (all waypoints)", session_id)
-            logger.info(f"Session {session_id} auto-completed by navigator")
-
-
-@api_bp.route("/session/<int:session_id>/stop", methods=["POST"])
-def stop_session(session_id):
-    status = request.get_json(silent=True, force=True) or {}
-    final_status = status.get("status", "completed")
-    if final_status not in ("completed", "aborted"):
-        final_status = "completed"
-    models.update_session_status(session_id, final_status)
-
-    # Stop the GPS navigator (which sends STOP to the Mega)
-    _navigator.stop()
-
-    models.log_event("info", "api", f"Session {session_id} {final_status}", session_id)
-    
-    with state.mode_lock:
-        state.current_mode = "idle"
-        state.auto_task["session_id"] = None
-    logger.info("Mode \u2192 IDLE")
-    return jsonify({"status": final_status})
-
-
-@api_bp.route("/session/<int:session_id>", methods=["GET"])
-def get_session(session_id):
-    session = models.get_session(session_id)
-    if not session:
-        return jsonify({"error": "not found"}), 404
-    return jsonify(session)
-
-
-@api_bp.route("/sessions", methods=["GET"])
-def list_sessions():
-    return jsonify(models.list_sessions())
-
-
-@api_bp.route("/session/<int:session_id>/sample", methods=["POST"])
-def trigger_sample(session_id):
-    """Advances to the next unvisited waypoint, sends GOTO + SAMPLE to the
-    Mega. This endpoint returns immediately (ack only) — the actual reading
-    arrives asynchronously via the Mega's DATA line and is fetched by the
-    client through /latest."""
-    with state.mode_lock:
-        if state.current_mode != "auto" or state.auto_task["session_id"] != session_id:
-            return jsonify({"error": "Session is not active in auto mode"}), 409
-            
-    waypoint = models.get_next_waypoint(session_id)
-    if waypoint is None:
-        return jsonify({"done": True, "message": "All waypoints visited"}), 200
-
-    try:
-        mega_link.send_command(f"GOTO {waypoint['lat']} {waypoint['lon']}")
-        mega_link.send_command("SAMPLE")
-    except Exception as exc:
-        logger.error(f"Sample command failed: {exc}")
-        models.log_event("fault", "api", f"Sample command failed: {exc}", session_id)
-        return jsonify({"error": str(exc)}), 500
-
-    with state.mode_lock:
-        state.auto_task["current_waypoint_index"] += 1
-
-    return jsonify({
-        "done": False,
-        "waypoint_id": waypoint["id"],
-        "lat": float(waypoint["lat"]),
-        "lon": float(waypoint["lon"]),
-    })
-
-
-@api_bp.route("/session/<int:session_id>/latest", methods=["GET"])
-def latest_state(session_id):
-    """Polled by the dashboard every ~1s. Drains any DATA events produced
-    since the last poll, persists them, and returns current Mega state."""
+@api_bp.route("/telemetry", methods=["GET"])
+def get_telemetry():
+    """Polled by the dashboard every ~1.5s."""
     events = mega_link.drain_events()
     new_readings = []
-
+    
+    # Normally we drain events to look for FAULTs and DATA
     for evt in events:
-        if evt["type"] == "data":
-            payload = evt["payload"]
-            waypoint = models.get_next_waypoint(session_id)  # the one just completed
-            wp_id = waypoint["id"] if waypoint else None
-
-            # Prefer actual GPS coordinates from the Mega over planned waypoint coords
-            if payload.get("lat") and payload.get("lon") and not payload.get("no_gps_fix"):
-                lat = float(payload["lat"])
-                lon = float(payload["lon"])
-            else:
-                lat = float(waypoint["lat"]) if waypoint else Config.FIELD_LAT_MIN
-                lon = float(waypoint["lon"]) if waypoint else Config.FIELD_LON_MIN
-
-            reading_id = models.insert_reading(
-                session_id, wp_id, lat, lon,
-                payload.get("nitrogen", 0), payload.get("phosphorus", 0),
-                payload.get("potassium", 0),
-                payload.get("moisture"), payload.get("temperature"), payload.get("ec"),
-                altitude=payload.get("altitude"),
-                satellites=int(payload["satellites"]) if payload.get("satellites") is not None else None,
-                hdop=payload.get("hdop"),
-            )
-            if wp_id:
-                models.mark_waypoint_visited(wp_id)
-            new_readings.append({
-                "id": reading_id, **payload,
-                "lat": lat, "lon": lon,
-            })
-        elif evt["type"] == "fault":
-            models.log_event("fault", "mega", evt["payload"], session_id)
+        if evt["type"] == "fault":
+            models.log_event("fault", "mega", evt["payload"])
+        elif evt["type"] == "data":
+            new_readings.append(evt["payload"])
+            
+    from app.gps_reader import gps_reader
+    gps = gps_reader.get_position()
 
     return jsonify({
         "mega_step": mega_link.state["step"],
         "connected": mega_link.state["connected"],
-        "new_readings": new_readings,
+        "gps": gps,
+        "new_readings": new_readings, # No async readings in manual mode
     })
 
 
-@api_bp.route("/session/<int:session_id>/readings", methods=["GET"])
-def get_readings(session_id):
-    return jsonify(models.get_readings(session_id))
+@api_bp.route("/readings", methods=["GET"])
+def get_readings():
+    return jsonify(models.get_all_readings())
 
 
-@api_bp.route("/session/<int:session_id>/map", methods=["GET"])
-def get_map(session_id):
-    session = models.get_session(session_id)
-    if not session:
-        return jsonify({"error": "not found"}), 404
-
-    readings = models.get_readings(session_id)
+@api_bp.route("/map", methods=["GET"])
+def get_map():
+    readings = models.get_all_readings()
+    if not readings:
+        return jsonify({})
+        
     samples = [
         {
             "lat": float(r["lat"]), "lon": float(r["lon"]),
@@ -235,16 +73,15 @@ def get_map(session_id):
 
     grid = idw_interpolate(
         samples,
-        float(session["lat_min"]), float(session["lat_max"]),
-        float(session["lon_min"]), float(session["lon_max"]),
+        float(Config.FIELD_LAT_MIN), float(Config.FIELD_LAT_MAX),
+        float(Config.FIELD_LON_MIN), float(Config.FIELD_LON_MAX),
         grid_res=40,
     )
     return jsonify(grid)
 
-
-@api_bp.route("/session/<int:session_id>/waypoints", methods=["GET"])
-def get_waypoints(session_id):
-    return jsonify(models.get_waypoints(session_id))
+@api_bp.route("/waypoints", methods=["GET"])
+def get_waypoints():
+    return jsonify([])
 
 
 @api_bp.route("/status", methods=["GET"])
@@ -258,45 +95,4 @@ def get_status():
     })
 
 
-@api_bp.route("/manual/sample", methods=["POST"])
-def manual_sample():
-    """Triggers an immediate spot-sample without a session."""
-    with state.mode_lock:
-        if state.current_mode == "auto":
-            return jsonify({"error": "Cannot take manual sample while Auto Run is active"}), 409
-        original_mode = state.current_mode
-        state.current_mode = "manual"
-    
-    try:
-        import time
-        # Send sample command and block until DATA is received or timeout
-        mega_link.send_command("SAMPLE")
-        
-        # Simple polling to wait for the data event in the mega_link queue
-        # For a robust production system, use a threading.Event triggered by the serial thread
-        timeout = 15.0 
-        start_t = time.time()
-        reading = None
-        
-        while time.time() - start_t < timeout:
-            events = mega_link.drain_events()
-            for evt in events:
-                if evt["type"] == "data":
-                    reading = evt["payload"]
-                    break
-            if reading:
-                break
-            time.sleep(0.1)
-            
-        if not reading:
-            raise Exception("Timeout waiting for sensor data from Mega")
-            
-        return jsonify({"status": "success", "reading": reading})
-        
-    except Exception as e:
-        logger.error(f"Manual sample failed: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        with state.mode_lock:
-            if state.current_mode == "manual":
-                state.current_mode = original_mode
+
