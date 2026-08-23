@@ -34,6 +34,7 @@ class Config:
     NPK_PORT = os.environ.get("IRAYA_NPK_PORT", "/dev/ttyUSB0")
     NPK_BAUD = int(os.environ.get("IRAYA_NPK_BAUD", "9600"))
     NPK_SIMULATE = os.environ.get("IRAYA_NPK_SIMULATE", "false").lower() == "true"
+    NPK_DERE_PIN = int(os.environ.get("IRAYA_NPK_DERE_PIN", "17")) # GPIO 17 / Pin 11
 
     # --- Drive safety ---
     DRIVE_HEARTBEAT_TIMEOUT_S = 0.5   # server-side: stop if no heartbeat in this window

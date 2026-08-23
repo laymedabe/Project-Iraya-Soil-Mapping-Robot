@@ -7,6 +7,13 @@ from app.config import Config
 
 logger = logging.getLogger(__name__)
 
+try:
+    from gpiozero import OutputDevice
+    rs485_ctrl = OutputDevice(Config.NPK_DERE_PIN, initial_value=False)
+except ImportError:
+    rs485_ctrl = None
+    logger.warning("gpiozero not installed or not running on Pi. RS485 DE/RE control disabled.")
+
 class NPKReader:
     def __init__(self):
         self.port = Config.NPK_PORT
@@ -46,8 +53,19 @@ class NPKReader:
                 self.ser.reset_input_buffer()
                 self.ser.reset_output_buffer()
                 
+                # Enable Transmitter (HIGH)
+                if rs485_ctrl:
+                    rs485_ctrl.on()
+                    time.sleep(0.005)
+                
                 # Send query
                 self.ser.write(self.query_frame)
+                self.ser.flush() # CRITICAL: Wait for transmission to finish before switching!
+                
+                # Enable Receiver (LOW)
+                if rs485_ctrl:
+                    time.sleep(0.002) # Give the last bit time to physically leave the wire
+                    rs485_ctrl.off()
                 
                 # The response should be 9 bytes:
                 # [0x01] [0x03] [0x04] [N_Hi] [N_Lo] [P_Hi] [P_Lo] [CRC_Lo] [CRC_Hi]
