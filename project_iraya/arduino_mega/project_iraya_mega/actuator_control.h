@@ -1,5 +1,5 @@
-#ifndef IRAYA_ACTUATOR_CONTROL_H
-#define IRAYA_ACTUATOR_CONTROL_H
+#ifndef OROSA_ACTUATOR_CONTROL_H
+#define OROSA_ACTUATOR_CONTROL_H
 
 #include <Arduino.h>
 

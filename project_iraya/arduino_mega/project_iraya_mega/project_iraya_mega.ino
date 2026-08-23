@@ -1,5 +1,5 @@
 /*
- * Project Iraya — Arduino Mega 2560 Unified Firmware
+ * Project Orosa — Arduino Mega 2560 Unified Firmware
  *
  * Integrates the real working hardware code (rccode.ino) with the
  * Raspberry Pi serial command protocol and GPS manual capture (gps.ino).
@@ -13,7 +13,7 @@
  *   - 2× BTS7960 motor drivers (skid-steer)
  *   - 2-channel power relay for linear actuator
  *   - MAX485 RS485 NPK soil sensor (Modbus RTU on Serial1)
- *   - NEO-6M GPS module (on Serial2)
+ *   - NEO-M8 GPS module (on Serial2)
  *   - IR receiver (IRremote library)
  *
  * Serial protocol to Pi:
@@ -55,7 +55,7 @@ void estopISR() {
 void setup() {
   PI_SERIAL.begin(PI_BAUD);     // USB to Pi / Serial Monitor (9600)
   RS485_SERIAL.begin(NPK_BAUD); // NPK Sensor via MAX485 (9600)
-  GPS_SERIAL.begin(GPS_BAUD);   // NEO-6M GPS module (9600)
+  GPS_SERIAL.begin(GPS_BAUD);   // NEO-M8 GPS module (9600)
 
   IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
 
@@ -67,7 +67,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ESTOP_PIN), estopISR, FALLING);
 
   PI_SERIAL.println(F("=========================================================="));
-  PI_SERIAL.println(F("    PROJECT IRAYA — SMART NPK SOIL MAPPING ROBOT          "));
+  PI_SERIAL.println(F("    PROJECT OROSA — SMART NPK SOIL MAPPING ROBOT          "));
   PI_SERIAL.println(F("    Unified Firmware (IR + Serial + GPS Capture)           "));
   PI_SERIAL.println(F("=========================================================="));
   PI_SERIAL.println(F("Controls:"));

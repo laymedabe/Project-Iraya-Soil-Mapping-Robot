@@ -1,5 +1,5 @@
-#ifndef IRAYA_NPK_SENSOR_H
-#define IRAYA_NPK_SENSOR_H
+#ifndef OROSA_NPK_SENSOR_H
+#define OROSA_NPK_SENSOR_H
 
 #include <Arduino.h>
 

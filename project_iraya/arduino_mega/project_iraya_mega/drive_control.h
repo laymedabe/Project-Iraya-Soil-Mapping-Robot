@@ -1,5 +1,5 @@
-#ifndef IRAYA_DRIVE_CONTROL_H
-#define IRAYA_DRIVE_CONTROL_H
+#ifndef OROSA_DRIVE_CONTROL_H
+#define OROSA_DRIVE_CONTROL_H
 
 #include <Arduino.h>
 

@@ -1,10 +1,10 @@
-#ifndef IRAYA_CONFIG_H
-#define IRAYA_CONFIG_H
+#ifndef OROSA_CONFIG_H
+#define OROSA_CONFIG_H
 
 /*
  * Pin map — matches the real hardware wiring from the working rccode.ino.
  * Arduino Mega 2560 with dual BTS7960 motor drivers, 2-channel relay
- * for linear actuator, MAX485 RS485 NPK sensor, NEO-6M GPS, and IR remote.
+ * for linear actuator, MAX485 RS485 NPK sensor, NEO-M8 GPS, and IR remote.
  */
 #include <Arduino.h>
 
@@ -33,7 +33,7 @@
 #define RS485_SERIAL    Serial1
 #define NPK_BAUD        9600
 
-// ---- GPS Module (NEO-6M on Serial2, pins 16/17) ----
+// ---- GPS Module (NEO-M8 on Serial2, pins 16/17) ----
 #define GPS_SERIAL      Serial2
 #define GPS_BAUD        9600
 
