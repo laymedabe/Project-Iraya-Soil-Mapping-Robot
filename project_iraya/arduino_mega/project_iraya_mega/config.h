@@ -9,7 +9,7 @@
 #include <Arduino.h>
 
 // ---- IR Receiver ----
-#define IR_RECEIVE_PIN  11
+#define IR_RECEIVE_PIN  2
 
 // ---- Left Motor Driver (BTS7960 #1) ----
 #define L_RPWM  5      // Forward PWM
@@ -18,15 +18,14 @@
 #define L_L_EN  8      // Left-enable
 
 // ---- Right Motor Driver (BTS7960 #2) ----
-// Pins 44 & 45 avoid Timer 2 PWM conflicts with IRremote library
-#define R_RPWM  44     // Forward PWM
-#define R_LPWM  45     // Reverse PWM
+#define R_RPWM  9     // Forward PWM
+#define R_LPWM  10     // Reverse PWM
 #define R_R_EN  4      // Right-enable
-#define R_L_EN  2      // Left-enable
+#define R_L_EN  12     // Left-enable
 
 // ---- Linear Actuator (2-Channel Power Relay, Active-LOW) ----
-#define RELAY_ACT_1  22   // Controls Actuator Lead 1
-#define RELAY_ACT_2  23   // Controls Actuator Lead 2
+#define RELAY_ACT_1  A0   // Controls Actuator Lead 1
+#define RELAY_ACT_2  A1   // Controls Actuator Lead 2
 
 
 
@@ -39,9 +38,9 @@
 
 // ---- Speed & Timing Parameters ----
 #define MOTOR_SPEED              200    // Default PWM speed (0 to 255)
-#define ACTUATOR_EXTEND_TIME_MS  3000   // Actuator extend duration
-#define ACTUATOR_HOLD_TIME_MS    5000   // Time probe stays in soil
-#define ACTUATOR_RETRACT_TIME_MS 3000   // Actuator retract duration
+#define ACTUATOR_EXTEND_TIME_MS  7000   // Actuator extend duration
+#define ACTUATOR_HOLD_TIME_MS    10000  // Time probe stays in soil
+#define ACTUATOR_RETRACT_TIME_MS 7000   // Actuator retract duration
 
 // ---- Safety tuning ----
 #define DRIVE_WATCHDOG_TIMEOUT_MS  400  // Stop if no drive command in this window
@@ -50,11 +49,11 @@
 #define AUTO_DRIVE_INTERVAL_MS   10000  // Drive for 10s between each sample stop
 
 // ---- IR Remote HEX Commands ----
-#define IR_FORWARD   0xB946FF00
-#define IR_BACKWARD  0xEA15FF00
-#define IR_LEFT      0xBB44FF00
-#define IR_RIGHT     0xBC43FF00
-#define IR_STOP      0xBF40FF00
-#define IR_ACTUATE   0xF708FF00   // Triggers Actuator + GPS + NPK
+#define IR_FORWARD   0xBC43FF00
+#define IR_BACKWARD  0xBB44FF00
+#define IR_LEFT      0xB946FF00
+#define IR_RIGHT     0xEA15FF00
+#define IR_STOP      0xAD52FF00
+#define IR_ACTUATE   0xBF40FF00   // Triggers Actuator + GPS + NPK
 
 #endif
