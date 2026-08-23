@@ -31,25 +31,31 @@ void driveInit() {
  */
 
 void motorForward(uint8_t speed) {
-  analogWrite(L_LPWM, 0); analogWrite(R_LPWM, 0);
-  analogWrite(L_RPWM, speed); analogWrite(R_RPWM, speed);
+  analogWrite(L_RPWM, 0); 
+  analogWrite(R_RPWM, 0);
+  analogWrite(L_LPWM, speed); 
+  analogWrite(R_LPWM, speed);
 }
 
 void motorBackward(uint8_t speed) {
-  analogWrite(L_RPWM, 0); analogWrite(R_RPWM, 0);
-  analogWrite(L_LPWM, speed); analogWrite(R_LPWM, speed);
+  analogWrite(L_LPWM, 0); 
+  analogWrite(R_LPWM, 0);
+  analogWrite(L_RPWM, speed); 
+  analogWrite(R_RPWM, speed);
 }
 
 void motorLeft(uint8_t speed) {
-  // Pivot left: left side reverse, right side forward
-  analogWrite(L_RPWM, 0); analogWrite(R_RPWM, 0);
-  analogWrite(L_LPWM, speed); analogWrite(R_RPWM, speed);
+  analogWrite(L_LPWM, 0); 
+  analogWrite(R_RPWM, 0);
+  analogWrite(L_RPWM, speed); 
+  analogWrite(R_LPWM, speed);
 }
 
 void motorRight(uint8_t speed) {
-  // Pivot right: left side forward, right side reverse
-  analogWrite(L_RPWM, 0); analogWrite(L_LPWM, 0);
-  analogWrite(L_RPWM, speed); analogWrite(R_LPWM, speed);
+  analogWrite(R_LPWM, 0); 
+  analogWrite(L_RPWM, 0);
+  analogWrite(L_LPWM, speed); 
+  analogWrite(R_RPWM, speed);
 }
 
 void motorStop() {
