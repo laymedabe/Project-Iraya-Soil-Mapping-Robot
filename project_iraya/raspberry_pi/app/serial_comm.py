@@ -118,6 +118,14 @@ class MegaLink:
         elif line.startswith("FAULT"):
             self.state["last_fault"] = line
             self._event_queue.put({"type": "fault", "payload": line})
+        elif line.startswith("DATA NPK"):
+            parts = line.split(" ")
+            if len(parts) >= 5:
+                self.state["latest_npk"] = {
+                    "nitrogen": float(parts[2]),
+                    "phosphorus": float(parts[3]),
+                    "potassium": float(parts[4])
+                }
         elif line.startswith("ACK"):
             pass  # command acknowledged, nothing to do beyond logging
 
@@ -125,13 +133,12 @@ class MegaLink:
         """Called automatically when Uno enters READING state (e.g. via IR remote)"""
         try:
             from app.gps_reader import gps_reader
-            from app.npk_reader import npk_reader
             from app import models
             
-            time.sleep(1.5) # Let sensors stabilize
+            time.sleep(3.5) # Let sensors stabilize and wait for Mega to send NPK data
             
             gps = gps_reader.get_position()
-            npk = npk_reader.read_npk()
+            npk = self.state.get("latest_npk")
             
             session_id = models.get_or_create_default_session()
             reading_id = models.insert_reading(

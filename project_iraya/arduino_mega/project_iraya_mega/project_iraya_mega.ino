@@ -27,6 +27,7 @@
 #include "config.h"
 #include "drive_control.h"
 #include "actuator_control.h"
+#include "npk_sensor.h"
 
 // =========================================================================
 // STATE
@@ -66,6 +67,7 @@ void setup() {
 
   driveInit();
   actuatorInit();
+  npkInit();
 
   pinMode(ESTOP_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(ESTOP_PIN), estopISR, FALLING);

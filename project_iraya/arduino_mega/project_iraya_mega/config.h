@@ -27,7 +27,10 @@
 #define RELAY_ACT_1  A0   // Controls Actuator Lead 1
 #define RELAY_ACT_2  A1   // Controls Actuator Lead 2
 
-
+// ---- MAX485 TTL RS485 Module Pins for 7-in-1 Sensor ----
+#define RS485_RX     A2   // Arduino RX <- MAX485 RO
+#define RS485_TX     A3   // Arduino TX -> MAX485 DI
+#define RS485_DE_RE  A4   // RS485 Flow Control (DE and RE tied together)
 
 // ---- Physical E-STOP input (also wired directly into motor driver enable — this pin is just for status reporting) ----
 #define ESTOP_PIN       3      // interrupt-capable pin (pin 2 is used by R_L_EN)

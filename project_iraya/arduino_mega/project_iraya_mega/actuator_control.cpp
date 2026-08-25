@@ -1,5 +1,6 @@
 #include "actuator_control.h"
 #include "config.h"
+#include "npk_sensor.h"
 
 static ActuatorState actState = ACT_IDLE;
 static unsigned long actTimer = 0;
@@ -36,6 +37,13 @@ void updateActuatorSequence() {
     case ACT_HOLDING:
       // Data capture is handled by the Raspberry Pi during this state
       // (The Pi observes STATUS READING)
+      
+      // Read the NPK sensor once after 2 seconds to let the probe settle in the soil
+      static bool npkReadDone = false;
+      if (!npkReadDone && millis() - actTimer >= 2000) {
+        readNPKSensor();
+        npkReadDone = true;
+      }
 
       // Hold probe extended in soil for the configured duration
       if (millis() - actTimer >= ACTUATOR_HOLD_TIME_MS) {
@@ -43,6 +51,7 @@ void updateActuatorSequence() {
         PI_SERIAL.println("STATUS RETRACTING");
         actState = ACT_RETRACTING;
         actTimer = millis();
+        npkReadDone = false; // Reset for next cycle
 
         // Retract Actuator (Active-LOW Relays)
         // Lead 1 → GND (relay OFF = HIGH), Lead 2 → +12V (relay ON = LOW)
