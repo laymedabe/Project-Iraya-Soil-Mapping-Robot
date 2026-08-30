@@ -94,5 +94,18 @@ def get_status():
         "mega_connected": mega_link.state["connected"]
     })
 
-
+@api_bp.route("/sample", methods=["POST"])
+def trigger_sample():
+    """Manually trigger a sample from the web dashboard."""
+    if not mega_link.state["connected"]:
+        return jsonify({"error": "Mega not connected"}), 400
+    if mega_link.state["step"] not in ["IDLE", "RAISED"]:
+        return jsonify({"error": f"Cannot sample while in state {mega_link.state['step']}"}), 400
+        
+    try:
+        mega_link.send_command("SAMPLE")
+        return jsonify({"status": "sampling started"})
+    except Exception as e:
+        logger.error(f"Failed to trigger sample: {e}")
+        return jsonify({"error": str(e)}), 500
 
