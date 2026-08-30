@@ -11,6 +11,105 @@
     <div class="label">Samples</div>
     <div class="val" id="sampleCount">0 / —</div>
   </div>
+  <div class="status-item">
+    <button id="btnTakeSample" class="primary" style="min-height: 36px; padding: 0 16px;">Take Sample</button>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="left-col" style="display: flex; flex-direction: column; gap: 18px;">
+    <div class="panel map-panel">
+      <div class="panel-head">
+        <div class="panel-title">Interpolated NPK Map <span>· IDW, live from MariaDB readings</span></div>
+      </div>
+      <div id="fieldCanvasWrap">
+        <canvas id="fieldCanvas" width="900" height="560"></canvas>
+      </div>
+      <div class="legend">
+        <span>Low</span><div class="legend-bar"></div><span>High</span>
+        <span class="legend-subtitle">Composite N-P-K index</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Actuator Insertion</div></div>
+      <div class="gauge-row">
+        <div class="gauge-visual" id="gaugeVisual">
+          <div class="gauge-track"></div>
+          <div class="gauge-fill" id="gaugeFill"></div>
+          <div class="gauge-ticks" id="gaugeTicks"></div>
+          <div class="gauge-probe" id="gaugeProbe"></div>
+        </div>
+        <div class="gauge-meta">
+          <div>
+            <div class="depth-read"><span id="depthVal">—</span></div>
+            <div class="depth-sub">Relay-based timed actuator · 3s extend / 5s hold / 3s retract</div>
+          </div>
+          <div class="step-pill"><span class="dot idle" id="stepDot"></span><span id="stepLabel">Standby</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Latest Reading</div></div>
+      <div class="npk-grid">
+        <div class="npk-cell n"><div class="k">Nitrogen</div><div class="v" id="nVal">—</div><div class="unit">mg/kg</div><div class="bar"><i id="nBar" style="width:0%"></i></div></div>
+        <div class="npk-cell p"><div class="k">Phosphorus</div><div class="v" id="pVal">—</div><div class="unit">mg/kg</div><div class="bar"><i id="pBar" style="width:0%"></i></div></div>
+        <div class="npk-cell k"><div class="k">Potassium</div><div class="v" id="kVal">—</div><div class="unit">mg/kg</div><div class="bar"><i id="kBar" style="width:0%"></i></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Telemetry</div></div>
+      <div class="telemetry-list">
+        <div class="tele-row"><span class="label">GPS Fix</span><span class="value" id="gpsVal">—, —</span></div>
+        <div class="tele-row"><span class="label">Altitude</span><span class="value" id="altVal">—</span></div>
+        <div class="tele-row"><span class="label">Satellites</span><span class="value" id="satVal">—</span></div>
+        <div class="tele-row"><span class="label">HDOP</span><span class="value" id="hdopVal">—</span></div>
+        <div class="tele-row"><span class="label">Soil Moisture</span><span class="value" id="moistVal">—</span></div>
+        <div class="tele-row"><span class="label">Soil Temp</span><span class="value" id="tempVal">—</span></div>
+        <div class="tele-row"><span class="label">EC</span><span class="value" id="ecVal">—</span></div>
+      </div>
+    </div>
+
+
+
+  </div>
+</div>
+
+<div class="grid lower-grid">
+  <div class="panel log-panel">
+    <div class="panel-head"><div class="panel-title">Sample Log <span id="logSub">· no active session</span></div></div>
+    <div class="log-scroll">
+      <table>
+        <thead><tr><th>#</th><th>Time</th><th>Lat, Lon</th><th>N</th><th>P</th><th>K</th><th>Status</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+      <div class="empty-log" id="emptyLog">Press Start Run to begin sampling.</div>
+    </div>
+  </div>
+  <div class="panel chart-panel">
+    <div class="panel-head"><div class="panel-title">NPK Trend <span>· last 12 samples</span></div></div>
+    <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+  </div>
+{% extends "base.html" %}
+{% block title %}Dashboard — DUTA{% endblock %}
+
+{% block content %}
+<div class="status-cluster">
+  <div class="status-item">
+    <div class="label">Mega Link</div>
+    <div class="val"><span class="dot idle" id="linkDot"></span><span id="linkText">Connecting…</span></div>
+  </div>
+  <div class="status-item">
+    <div class="label">Samples</div>
+    <div class="val" id="sampleCount">0 / —</div>
+  </div>
+  <div class="status-item">
+    <button id="btnTakeSample" class="primary" style="min-height: 36px; padding: 0 16px;">Take Sample</button>
+  </div>
 </div>
 
 <div class="grid">
@@ -97,11 +196,11 @@
 {% endblock %}
 
 {% block scripts %}
+<script id="field-bounds-data" type="application/json">
+  {{ field_bounds | tojson | safe }}
+</script>
 <script>
-  window.IRAYA_FIELD_BOUNDS = {
-    latMin: {{ field_bounds.lat_min }}, latMax: {{ field_bounds.lat_max }},
-    lonMin: {{ field_bounds.lon_min }}, lonMax: {{ field_bounds.lon_max }}
-  };
+  window.IRAYA_FIELD_BOUNDS = JSON.parse(document.getElementById('field-bounds-data').textContent);
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
