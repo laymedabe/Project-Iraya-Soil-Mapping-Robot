@@ -247,4 +247,25 @@ async function refreshMap(){
 // Start polling immediately since there is no "Start Run" button anymore
 pollTimer = setInterval(pollLatest, 1500);
 
-
+const btnTakeSample = el('btnTakeSample');
+if (btnTakeSample) {
+  btnTakeSample.addEventListener('click', async () => {
+    btnTakeSample.disabled = true;
+    btnTakeSample.textContent = "Sampling...";
+    try {
+      const res = await fetch('/api/sample', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        alert("Error: " + data.error);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to trigger sample");
+    } finally {
+      setTimeout(() => {
+        btnTakeSample.disabled = false;
+        btnTakeSample.textContent = "Take Sample";
+      }, 3000);
+    }
+  });
+}
