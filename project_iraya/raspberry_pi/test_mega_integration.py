@@ -2,7 +2,7 @@ import serial
 import time
 import sys
 
-PORT = "/dev/ttyACM0"
+PORT = "/dev/ttyUSB0"
 BAUD = 9600
 
 print(f"Connecting to Arduino Mega on {PORT} at {BAUD} baud...")
@@ -15,13 +15,13 @@ try:
     ser.write(b"SAMPLE\n")
     ser.flush()
     
-    print("Waiting for response... (This will take ~10 seconds as the probe lowers)")
+    print("Waiting for response... (This will take ~10 seconds as the probe lowers, then 10s monitoring)")
     
     start_time = time.time()
     npk_received = False
     
-    # Listen for 15 seconds
-    while time.time() - start_time < 15:
+    # Listen for 30 seconds
+    while time.time() - start_time < 30:
         line = ser.readline()
         if line:
             decoded = line.decode('utf-8', errors='ignore').strip()
@@ -37,7 +37,7 @@ try:
                 break
 
     if not npk_received:
-        print("\n⚠️ Test timed out. Did not receive 'DATA NPK' within 15 seconds.")
+        print("\n⚠️ Test timed out. Did not receive 'DATA NPK' within 30 seconds.")
         
     ser.close()
     print("\nTest complete.")
