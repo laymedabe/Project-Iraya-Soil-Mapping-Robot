@@ -71,8 +71,8 @@ function syncCanvasSize(){
 }
 
 function latLonToXY(lat, lon, W, H, PAD){
-  const x = PAD + (lon-bounds.lonMin)/(bounds.lonMax-bounds.lonMin) * (W-2*PAD);
-  const y = PAD + (bounds.latMax-lat)/(bounds.latMax-bounds.latMin) * (H-2*PAD);
+  const x = PAD + (lon-bounds.lon_min)/(bounds.lon_max-bounds.lon_min) * (W-2*PAD);
+  const y = PAD + (bounds.lat_max-lat)/(bounds.lat_max-bounds.lat_min) * (H-2*PAD);
   return [x,y];
 }
 function colorForValue(v){
@@ -137,8 +137,8 @@ function drawFieldFromGrid(gridResp, waypoints){
 
   ctx.fillStyle = 'rgba(185,176,154,0.8)';
   ctx.font = `${Math.max(9, Math.floor(W/75))}px "JetBrains Mono", monospace`;
-  ctx.fillText(bounds.lonMin.toFixed(3), PAD-4, H-PAD+14);
-  ctx.fillText(bounds.lonMax.toFixed(3), W-PAD-28, H-PAD+14);
+  ctx.fillText(bounds.lon_min.toFixed(3), PAD-4, H-PAD+14);
+  ctx.fillText(bounds.lon_max.toFixed(3), W-PAD-28, H-PAD+14);
 }
 drawFieldFromGrid(null, []);
 
@@ -181,7 +181,35 @@ function addLogRow(idx, r, tag){
   el('logBody').prepend(tr);
 }
 
-/* ---------------- API calls ---------------- */
+function processReading(r) {
+  sampleIndex++;
+  el('nVal').textContent = r.nitrogen.toFixed(1);
+  el('pVal').textContent = r.phosphorus.toFixed(1);
+  el('kVal').textContent = r.potassium.toFixed(1);
+  el('nBar').style.width = Math.min(100, r.nitrogen/90*100) + '%';
+  el('pBar').style.width = Math.min(100, r.phosphorus/50*100) + '%';
+  el('kBar').style.width = Math.min(100, r.potassium/240*100) + '%';
+  if(r.moisture !== undefined && r.moisture !== null) el('moistVal').textContent = r.moisture.toFixed(1) + ' %';
+  if(r.temperature !== undefined && r.temperature !== null) el('tempVal').textContent = r.temperature.toFixed(1) + ' °C';
+  if(r.ec !== undefined && r.ec !== null) el('ecVal').textContent = r.ec.toFixed(2) + ' dS/m';
+  if(r.ph !== undefined && r.ph !== null) el('phVal').textContent = r.ph.toFixed(2);
+  if(r.altitude !== undefined && r.altitude !== null) el('altVal').textContent = r.altitude.toFixed(1) + ' m';
+  if(r.satellites !== undefined && r.satellites !== null) el('satVal').textContent = Math.round(r.satellites);
+  if(r.hdop !== undefined && r.hdop !== null) el('hdopVal').textContent = r.hdop.toFixed(2);
+
+  const tag = statusTag(r.nitrogen, r.phosphorus, r.potassium);
+  addLogRow(sampleIndex, r, tag);
+
+  trendChart.data.labels.push('#' + sampleIndex);
+  trendChart.data.datasets[0].data.push(r.nitrogen);
+  trendChart.data.datasets[1].data.push(r.phosphorus);
+  trendChart.data.datasets[2].data.push(r.potassium);
+  if(trendChart.data.labels.length > 12){
+    trendChart.data.labels.shift();
+    trendChart.data.datasets.forEach(d=>d.data.shift());
+  }
+}
+
 async function pollLatest(){
   const resp = await fetch('/api/telemetry');
   const data = await resp.json();
@@ -198,33 +226,9 @@ async function pollLatest(){
 
   if(data.new_readings && data.new_readings.length){
     for(const r of data.new_readings){
-      sampleIndex++;
-      el('nVal').textContent = r.nitrogen.toFixed(1);
-      el('pVal').textContent = r.phosphorus.toFixed(1);
-      el('kVal').textContent = r.potassium.toFixed(1);
-      el('nBar').style.width = Math.min(100, r.nitrogen/90*100) + '%';
-      el('pBar').style.width = Math.min(100, r.phosphorus/50*100) + '%';
-      el('kBar').style.width = Math.min(100, r.potassium/240*100) + '%';
-      if(r.moisture !== undefined) el('moistVal').textContent = r.moisture.toFixed(1) + ' %';
-      if(r.temperature !== undefined) el('tempVal').textContent = r.temperature.toFixed(1) + ' °C';
-      if(r.ec !== undefined) el('ecVal').textContent = r.ec.toFixed(2) + ' dS/m';
-      if(r.altitude !== undefined) el('altVal').textContent = r.altitude.toFixed(1) + ' m';
-      if(r.satellites !== undefined) el('satVal').textContent = Math.round(r.satellites);
-      if(r.hdop !== undefined) el('hdopVal').textContent = r.hdop.toFixed(2);
-
-      const tag = statusTag(r.nitrogen, r.phosphorus, r.potassium);
-      addLogRow(sampleIndex, r, tag);
-
-      trendChart.data.labels.push('#' + sampleIndex);
-      trendChart.data.datasets[0].data.push(r.nitrogen);
-      trendChart.data.datasets[1].data.push(r.phosphorus);
-      trendChart.data.datasets[2].data.push(r.potassium);
-      if(trendChart.data.labels.length > 12){
-        trendChart.data.labels.shift();
-        trendChart.data.datasets.forEach(d=>d.data.shift());
-      }
-      trendChart.update();
+      processReading(r);
     }
+    trendChart.update();
     el('sampleCount').textContent = `${sampleIndex}`;
     el('logSub').textContent = `· ${sampleIndex} manual points collected`;
 
@@ -244,30 +248,30 @@ async function refreshMap(){
   drawFieldFromGrid(grid, waypoints);
 }
 
-// Start polling immediately since there is no "Start Run" button anymore
-pollTimer = setInterval(pollLatest, 1500);
-
-const btnTakeSample = el('btnTakeSample');
-if (btnTakeSample) {
-  btnTakeSample.addEventListener('click', async () => {
-    btnTakeSample.disabled = true;
-    btnTakeSample.textContent = "Sampling...";
-    try {
-      const res = await fetch('/api/sample', { method: 'POST' });
-      const data = await res.json();
-      if (data.error) {
-        alert("Error: " + data.error);
+async function initDashboard() {
+  try {
+    const resp = await fetch('/api/readings');
+    const readings = await resp.json();
+    if (readings && readings.length) {
+      for (const r of readings) {
+        processReading(r);
       }
-    } catch (e) {
-      console.error(e);
-      alert("Failed to trigger sample");
-    } finally {
-      setTimeout(() => {
-        btnTakeSample.disabled = false;
-        btnTakeSample.textContent = "Take Sample";
-      }, 3000);
+      trendChart.update();
+      el('sampleCount').textContent = `${sampleIndex}`;
+      el('logSub').textContent = `· ${sampleIndex} manual points collected`;
+      refreshMap();
     }
-  });
+  } catch(e) { console.error(e); }
+  
+// Start polling after historical load
+  pollTimer = setInterval(pollLatest, 1500);
 }
 
+initDashboard();
 
+const btnDownloadCSV = el('btnDownloadCSV');
+if (btnDownloadCSV) {
+  btnDownloadCSV.addEventListener('click', () => {
+    window.location.href = '/api/export/csv';
+  });
+}

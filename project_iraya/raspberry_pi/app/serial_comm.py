@@ -178,6 +178,10 @@ class MegaLink:
                 npk["nitrogen"] if npk else 0,
                 npk["phosphorus"] if npk else 0,
                 npk["potassium"] if npk else 0,
+                moisture=npk.get("moisture"),
+                temperature=npk.get("temperature"),
+                ec=npk.get("ec"),
+                ph=npk.get("ph"),
                 altitude=gps.get("alt"),
                 satellites=gps.get("sats"),
                 hdop=gps.get("hdop")
@@ -191,6 +195,10 @@ class MegaLink:
                     "nitrogen": npk["nitrogen"] if npk else 0,
                     "phosphorus": npk["phosphorus"] if npk else 0,
                     "potassium": npk["potassium"] if npk else 0,
+                    "moisture": npk.get("moisture"),
+                    "temperature": npk.get("temperature"),
+                    "ec": npk.get("ec"),
+                    "ph": npk.get("ph"),
                     "altitude": gps.get("alt"),
                     "satellites": gps.get("sats"),
                     "hdop": gps.get("hdop")

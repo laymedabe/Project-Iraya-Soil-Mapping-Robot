@@ -131,3 +131,48 @@ def drive_robot():
     except Exception as e:
         logger.error(f"Failed to trigger drive: {e}")
         return jsonify({"error": str(e)}), 500
+
+@api_bp.route("/export/csv", methods=["GET"])
+def export_csv():
+    """Export all readings as a CSV file."""
+    import io
+    import csv
+    from flask import Response
+    
+    readings = models.get_all_readings()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow([
+        "ID", "Time", "Latitude", "Longitude", 
+        "Nitrogen (mg/kg)", "Phosphorus (mg/kg)", "Potassium (mg/kg)", 
+        "Moisture (%)", "Temperature (C)", "EC (dS/m)", "pH",
+        "Altitude (m)", "Satellites", "HDOP"
+    ])
+    
+    # Write data
+    for r in readings:
+        writer.writerow([
+            r.get("id"),
+            r.get("recorded_at"),
+            r.get("lat"),
+            r.get("lon"),
+            r.get("nitrogen"),
+            r.get("phosphorus"),
+            r.get("potassium"),
+            r.get("moisture"),
+            r.get("temperature"),
+            r.get("ec"),
+            r.get("ph"),
+            r.get("altitude"),
+            r.get("satellites"),
+            r.get("hdop")
+        ])
+        
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=iraya_readings.csv"}
+    )
