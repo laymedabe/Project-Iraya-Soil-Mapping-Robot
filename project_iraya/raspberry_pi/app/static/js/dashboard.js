@@ -270,49 +270,4 @@ if (btnTakeSample) {
   });
 }
 
-// Remote Control D-Pad Logic
-const dpadBtns = document.querySelectorAll('.dpad-btn');
-let driveInterval = null;
 
-const stopDriving = async () => {
-  if (driveInterval) {
-    clearInterval(driveInterval);
-    driveInterval = null;
-  }
-  try {
-    await fetch('/api/drive', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'STOP' })
-    });
-  } catch(err) { console.error(err); }
-};
-
-dpadBtns.forEach(btn => {
-  const dir = btn.getAttribute('data-dir');
-  
-  btn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    
-    // Always stop current driving first
-    await stopDriving();
-
-    if (dir === 'STOP') {
-      return; // Stop is already handled above
-    }
-    
-    const sendCmd = async () => {
-      try {
-        await fetch('/api/drive', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ direction: dir, speed: 200 })
-        });
-      } catch(err) { console.error(err); }
-    };
-    
-    // Send immediately, then repeat every 250ms to satisfy the Mega's watchdog
-    sendCmd();
-    driveInterval = setInterval(sendCmd, 250);
-  });
-});

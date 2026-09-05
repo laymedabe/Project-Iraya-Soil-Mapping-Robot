@@ -107,23 +107,60 @@ class MegaLink:
 
     def _handle_line(self, line: str):
         logger.debug(f"[MEGA->PI] {line}")
+        
+        # We need a buffer to accumulate the multi-line sensor readings
+        if not hasattr(self, "_sensor_buffer"):
+            self._sensor_buffer = {}
+
         if line.startswith("STATUS"):
             step = line.split(" ", 1)[1] if " " in line else line
             self.state["step"] = step
         elif line.startswith("FAULT"):
             self.state["last_fault"] = line
             self._event_queue.put({"type": "fault", "payload": line})
-        elif line.startswith("DATA NPK"):
-            parts = line.split(" ")
-            if len(parts) >= 5:
+        
+        # Parse human-readable 7-in-1 sensor output
+        elif "Moisture" in line and ":" in line:
+            try: self._sensor_buffer["moisture"] = float(line.split(":")[1].replace("%", "").strip())
+            except ValueError: pass
+        elif "Temperature" in line and ":" in line:
+            try: self._sensor_buffer["temperature"] = float(line.split(":")[1].replace("deg C", "").strip())
+            except ValueError: pass
+        elif "EC" in line and ":" in line:
+            try: self._sensor_buffer["ec"] = float(line.split(":")[1].replace("us/cm", "").strip()) / 1000.0 # Convert to dS/m
+            except ValueError: pass
+        elif "pH Level" in line and ":" in line:
+            try: self._sensor_buffer["ph"] = float(line.split(":")[1].strip())
+            except ValueError: pass
+        elif "Nitrogen (N)" in line and ":" in line:
+            try: self._sensor_buffer["nitrogen"] = float(line.split(":")[1].replace("mg/kg", "").strip())
+            except ValueError: pass
+        elif "Phosphorus" in line and ":" in line:
+            try: self._sensor_buffer["phosphorus"] = float(line.split(":")[1].replace("mg/kg", "").strip())
+            except ValueError: pass
+        elif "Potassium" in line and ":" in line:
+            try: 
+                self._sensor_buffer["potassium"] = float(line.split(":")[1].replace("mg/kg", "").strip())
+                
+                # Potassium is the last line in the block. We have all data now!
                 npk_data = {
-                    "nitrogen": float(parts[2]),
-                    "phosphorus": float(parts[3]),
-                    "potassium": float(parts[4])
+                    "nitrogen": self._sensor_buffer.get("nitrogen", 0),
+                    "phosphorus": self._sensor_buffer.get("phosphorus", 0),
+                    "potassium": self._sensor_buffer.get("potassium", 0),
+                    "moisture": self._sensor_buffer.get("moisture", 0),
+                    "temperature": self._sensor_buffer.get("temperature", 0),
+                    "ec": self._sensor_buffer.get("ec", 0),
+                    "ph": self._sensor_buffer.get("ph", 0)
                 }
                 self.state["latest_npk"] = npk_data
-                # Trigger the database capture right now, since we have the fresh NPK data
+                
+                # Trigger the database capture right now
                 threading.Thread(target=self._capture_sample, args=(npk_data,), daemon=True).start()
+                
+                # Clear buffer for next time
+                self._sensor_buffer = {}
+            except ValueError: pass
+            
         elif line.startswith("ACK"):
             pass  # command acknowledged, nothing to do beyond logging
 
