@@ -224,31 +224,40 @@ function processReading(r) {
 }
 
 async function pollLatest(){
-  const resp = await fetch('/api/telemetry');
-  const data = await resp.json();
+  try {
+    const resp = await fetch('/api/telemetry');
+    const data = await resp.json();
 
-  el('linkDot').className = 'dot ' + (data.connected ? 'live' : 'warn');
-  el('linkText').textContent = data.connected ? 'Connected' : 'Disconnected';
-  setStepUI(data.mega_step);
+    el('linkDot').className = 'dot ' + (data.connected ? 'live' : 'warn');
+    el('linkText').textContent = data.connected ? 'Connected' : 'Disconnected';
+    setStepUI(data.mega_step);
 
-  if(data.gps && data.gps.fix){
-      el('gpsVal').textContent = `${data.gps.lat.toFixed(5)}, ${data.gps.lon.toFixed(5)}`;
-  } else {
-      el('gpsVal').textContent = 'No Fix';
-  }
-
-  if(data.new_readings && data.new_readings.length){
-    for(const r of data.new_readings){
-      processReading(r);
+    if(data.gps && data.gps.fix){
+        el('gpsVal').textContent = `${data.gps.lat.toFixed(5)}, ${data.gps.lon.toFixed(5)}`;
+    } else {
+        el('gpsVal').textContent = 'No Fix';
     }
-    trendChart.update();
-    el('sampleCount').textContent = `${sampleIndex}`;
-    el('logSub').textContent = `· ${sampleIndex} manual points collected`;
 
-    // refresh map
-    refreshMap();
+    if(data.new_readings && data.new_readings.length){
+      for(const r of data.new_readings){
+        processReading(r);
+      }
+      trendChart.update();
+      el('sampleCount').textContent = `${sampleIndex}`;
+      el('logSub').textContent = `· ${sampleIndex} manual points collected`;
+
+      // refresh map
+      refreshMap();
+    }
+  } catch(e) {
+    console.error("Telemetry error", e);
+    // Don't alert here constantly or it will spam the user every 1.5s
+    // But we can alert once:
+    if (!window.hasAlerted) {
+      alert("Telemetry UI Error: " + e.message);
+      window.hasAlerted = true;
+    }
   }
-
 }
 
 async function refreshMap(){
@@ -274,7 +283,10 @@ async function initDashboard() {
       el('logSub').textContent = `· ${sampleIndex} manual points collected`;
       refreshMap();
     }
-  } catch(e) { console.error(e); }
+  } catch(e) { 
+    console.error(e); 
+    alert("UI Error: " + e.message + " at " + e.stack);
+  }
   
 // Start polling after historical load
   pollTimer = setInterval(pollLatest, 1500);
