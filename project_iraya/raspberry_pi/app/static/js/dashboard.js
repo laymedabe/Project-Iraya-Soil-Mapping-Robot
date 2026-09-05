@@ -8,6 +8,7 @@ const el = id => document.getElementById(id);
 
 let sampleIndex = 0;
 let pollTimer = null;
+let allReadings = [];
 
 /* ---------------- gauge ---------------- */
 (function buildTicks(){
@@ -135,6 +136,17 @@ function drawFieldFromGrid(gridResp, waypoints){
     });
   }
 
+  // Draw manual sample points
+  if(allReadings && allReadings.length){
+    allReadings.forEach(r => {
+      const [x,y] = latLonToXY(parseFloat(r.lat), parseFloat(r.lon), W, H, PAD);
+      ctx.beginPath(); ctx.arc(x,y, Math.max(4, Math.floor(W/180)), 0, Math.PI*2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.strokeStyle = '#0F0D09'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+  }
+
   ctx.fillStyle = 'rgba(185,176,154,0.8)';
   ctx.font = `${Math.max(9, Math.floor(W/75))}px "JetBrains Mono", monospace`;
   ctx.fillText(bounds.lon_min.toFixed(3), PAD-4, H-PAD+14);
@@ -183,6 +195,7 @@ function addLogRow(idx, r, tag){
 
 function processReading(r) {
   sampleIndex++;
+  allReadings.push(r);
   el('nVal').textContent = r.nitrogen.toFixed(1);
   el('pVal').textContent = r.phosphorus.toFixed(1);
   el('kVal').textContent = r.potassium.toFixed(1);
