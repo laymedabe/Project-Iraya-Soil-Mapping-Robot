@@ -109,11 +109,6 @@ class MegaLink:
         logger.debug(f"[MEGA->PI] {line}")
         if line.startswith("STATUS"):
             step = line.split(" ", 1)[1] if " " in line else line
-            
-            # Automatically capture a sample when the physical remote triggers READING
-            if step == "READING" and self.state["step"] != "READING":
-                threading.Thread(target=self._capture_sample, daemon=True).start()
-                
             self.state["step"] = step
         elif line.startswith("FAULT"):
             self.state["last_fault"] = line
@@ -121,24 +116,24 @@ class MegaLink:
         elif line.startswith("DATA NPK"):
             parts = line.split(" ")
             if len(parts) >= 5:
-                self.state["latest_npk"] = {
+                npk_data = {
                     "nitrogen": float(parts[2]),
                     "phosphorus": float(parts[3]),
                     "potassium": float(parts[4])
                 }
+                self.state["latest_npk"] = npk_data
+                # Trigger the database capture right now, since we have the fresh NPK data
+                threading.Thread(target=self._capture_sample, args=(npk_data,), daemon=True).start()
         elif line.startswith("ACK"):
             pass  # command acknowledged, nothing to do beyond logging
 
-    def _capture_sample(self):
-        """Called automatically when Uno enters READING state (e.g. via IR remote)"""
+    def _capture_sample(self, npk):
+        """Called automatically when Mega sends DATA NPK"""
         try:
             from app.gps_reader import gps_reader
             from app import models
             
-            time.sleep(3.5) # Let sensors stabilize and wait for Mega to send NPK data
-            
             gps = gps_reader.get_position()
-            npk = self.state.get("latest_npk")
             
             session_id = models.get_or_create_default_session()
             reading_id = models.insert_reading(
