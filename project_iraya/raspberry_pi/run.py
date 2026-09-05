@@ -15,4 +15,4 @@ app = create_app()
 if __name__ == "__main__":
     # host=0.0.0.0 so the dashboard is reachable from any device connected
     # to the Pi's Wi-Fi hotspot, not just localhost.
-    socketio.run(app, host="0.0.0.0", port=5000, debug=app.config["DEBUG"])
+    socketio.run(app, host="0.0.0.0", port=5000, debug=app.config["DEBUG"], allow_unsafe_werkzeug=True)
