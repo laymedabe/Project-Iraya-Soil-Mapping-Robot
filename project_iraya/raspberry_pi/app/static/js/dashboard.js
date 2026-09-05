@@ -262,6 +262,201 @@ if (btnTakeSample) {
       console.error(e);
       alert("Failed to trigger sample");
     } finally {
+  return false;
+}
+
+function latLonToXY(lat, lon, W, H, PAD){
+  const x = PAD + (lon-bounds.lonMin)/(bounds.lonMax-bounds.lonMin) * (W-2*PAD);
+  const y = PAD + (bounds.latMax-lat)/(bounds.latMax-bounds.latMin) * (H-2*PAD);
+  return [x,y];
+}
+function colorForValue(v){
+  const stops = [[0.0,[59,92,140]],[0.35,[93,160,184]],[0.65,[127,166,92]],[1.0,[201,162,61]],[1.4,[193,91,74]]];
+  v = Math.max(0, Math.min(1.4, v));
+  for(let i=0;i<stops.length-1;i++){
+    const [v0,c0]=stops[i], [v1,c1]=stops[i+1];
+    if(v>=v0 && v<=v1){ const t=(v-v0)/(v1-v0); return c0.map((c,idx)=>Math.round(c+(c1[idx]-c)*t)); }
+  }
+  return stops[stops.length-1][1];
+}
+function drawFieldFromGrid(gridResp, waypoints){
+  if (gridResp !== undefined) lastGridData = gridResp;
+  if (waypoints !== undefined) lastWaypoints = waypoints;
+
+  syncCanvasSize();
+  const W = canvas.width, H = canvas.height;
+  const PAD = Math.max(20, Math.floor(W * 0.05));
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#0F0D09'; ctx.fillRect(0,0,W,H);
+
+  const activeGrid = lastGridData;
+  const activeWaypoints = lastWaypoints;
+
+  if(activeGrid && activeGrid.grids && activeGrid.lats.length){
+    const lats = activeGrid.lats, lons = activeGrid.lons;
+    const res = lats.length;
+    const cw = (W-2*PAD)/res, ch = (H-2*PAD)/res;
+    const nGrid = activeGrid.grids.nitrogen, pGrid = activeGrid.grids.phosphorus, kGrid = activeGrid.grids.potassium;
+    for(let i=0;i<res;i++){
+      for(let j=0;j<res;j++){
+        const composite = (nGrid[i][j]/80*0.4) + (pGrid[i][j]/45*0.3) + (kGrid[i][j]/220*0.3);
+        const [r,g,b] = colorForValue(composite);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+        ctx.fillRect(PAD+j*cw, PAD+i*ch, cw+1, ch+1);
+      }
+    }
+  } else {
+    ctx.fillStyle = '#17140E';
+    ctx.fillRect(PAD, PAD, W-2*PAD, H-2*PAD);
+  }
+
+  // planned path
+  if(activeWaypoints && activeWaypoints.length){
+    ctx.strokeStyle = 'rgba(242,236,221,0.25)'; ctx.setLineDash([4,5]); ctx.lineWidth=1.5;
+    ctx.beginPath();
+    activeWaypoints.forEach((wp,idx)=>{
+      const [x,y] = latLonToXY(parseFloat(wp.lat), parseFloat(wp.lon), W, H, PAD);
+      if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+
+    activeWaypoints.forEach(wp=>{
+      const [x,y] = latLonToXY(parseFloat(wp.lat), parseFloat(wp.lon), W, H, PAD);
+      ctx.beginPath(); ctx.arc(x,y, Math.max(3, Math.floor(W/200)), 0, Math.PI*2);
+      ctx.fillStyle = wp.visited ? 'rgba(242,236,221,0.9)' : 'rgba(242,236,221,0.25)';
+      ctx.fill();
+      if(wp.visited){ ctx.strokeStyle='#14120D'; ctx.lineWidth=1.5; ctx.stroke(); }
+    });
+  }
+
+  ctx.fillStyle = 'rgba(185,176,154,0.8)';
+  ctx.font = `${Math.max(9, Math.floor(W/75))}px "JetBrains Mono", monospace`;
+  ctx.fillText(bounds.lonMin.toFixed(3), PAD-4, H-PAD+14);
+  ctx.fillText(bounds.lonMax.toFixed(3), W-PAD-28, H-PAD+14);
+}
+drawFieldFromGrid(null, []);
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    drawFieldFromGrid();
+  }, 100);
+});
+
+/* ---------------- trend chart ---------------- */
+const trendChart = new Chart(el('trendChart').getContext('2d'), {
+  type:'line',
+  data:{ labels:[], datasets:[
+    {label:'N', data:[], borderColor:'#9DCB74', backgroundColor:'transparent', tension:0.35, pointRadius:2},
+    {label:'P', data:[], borderColor:'#C97F3D', backgroundColor:'transparent', tension:0.35, pointRadius:2},
+    {label:'K', data:[], borderColor:'#5DA0B8', backgroundColor:'transparent', tension:0.35, pointRadius:2},
+  ]},
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#B9B09A', font:{family:'JetBrains Mono', size:10} } } },
+    scales:{ x:{ ticks:{color:'#7d745e', font:{family:'JetBrains Mono', size:9}}, grid:{color:'#3A3428'} },
+             y:{ ticks:{color:'#7d745e', font:{family:'JetBrains Mono', size:9}}, grid:{color:'#3A3428'} } }
+  }
+});
+
+function statusTag(n,p,k){
+  const composite = n/80 + p/45 + k/220;
+  if(composite < 0.75) return {label:'Low', cls:'low'};
+  if(composite > 1.5) return {label:'High', cls:'high'};
+  return {label:'OK', cls:'ok'};
+}
+function addLogRow(idx, r, tag){
+  el('emptyLog').style.display = 'none';
+  const tr = document.createElement('tr');
+  const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  tr.innerHTML = `<td>${idx}</td><td>${time}</td><td>${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</td>
+    <td>${r.nitrogen.toFixed(1)}</td><td>${r.phosphorus.toFixed(1)}</td><td>${r.potassium.toFixed(1)}</td>
+    <td><span class="tag ${tag.cls}">${tag.label}</span></td>`;
+  el('logBody').prepend(tr);
+}
+
+/* ---------------- API calls ---------------- */
+async function pollLatest(){
+  const resp = await fetch('/api/telemetry');
+  const data = await resp.json();
+
+  el('linkDot').className = 'dot ' + (data.connected ? 'live' : 'warn');
+  el('linkText').textContent = data.connected ? 'Connected' : 'Disconnected';
+  setStepUI(data.mega_step);
+
+  if(data.gps && data.gps.fix){
+      el('gpsVal').textContent = `${data.gps.lat.toFixed(5)}, ${data.gps.lon.toFixed(5)}`;
+  } else {
+      el('gpsVal').textContent = 'No Fix';
+  }
+
+  if(data.new_readings && data.new_readings.length){
+    for(const r of data.new_readings){
+      sampleIndex++;
+      el('nVal').textContent = r.nitrogen.toFixed(1);
+      el('pVal').textContent = r.phosphorus.toFixed(1);
+      el('kVal').textContent = r.potassium.toFixed(1);
+      el('nBar').style.width = Math.min(100, r.nitrogen/90*100) + '%';
+      el('pBar').style.width = Math.min(100, r.phosphorus/50*100) + '%';
+      el('kBar').style.width = Math.min(100, r.potassium/240*100) + '%';
+      if(r.moisture !== undefined) el('moistVal').textContent = r.moisture.toFixed(1) + ' %';
+      if(r.temperature !== undefined) el('tempVal').textContent = r.temperature.toFixed(1) + ' °C';
+      if(r.ec !== undefined) el('ecVal').textContent = r.ec.toFixed(2) + ' dS/m';
+      if(r.altitude !== undefined) el('altVal').textContent = r.altitude.toFixed(1) + ' m';
+      if(r.satellites !== undefined) el('satVal').textContent = Math.round(r.satellites);
+      if(r.hdop !== undefined) el('hdopVal').textContent = r.hdop.toFixed(2);
+
+      const tag = statusTag(r.nitrogen, r.phosphorus, r.potassium);
+      addLogRow(sampleIndex, r, tag);
+
+      trendChart.data.labels.push('#' + sampleIndex);
+      trendChart.data.datasets[0].data.push(r.nitrogen);
+      trendChart.data.datasets[1].data.push(r.phosphorus);
+      trendChart.data.datasets[2].data.push(r.potassium);
+      if(trendChart.data.labels.length > 12){
+        trendChart.data.labels.shift();
+        trendChart.data.datasets.forEach(d=>d.data.shift());
+      }
+      trendChart.update();
+    }
+    el('sampleCount').textContent = `${sampleIndex}`;
+    el('logSub').textContent = `· ${sampleIndex} manual points collected`;
+
+    // refresh map
+    refreshMap();
+  }
+
+}
+
+async function refreshMap(){
+  const [mapResp, wpResp] = await Promise.all([
+    fetch(`/api/map`),
+    fetch(`/api/waypoints`),
+  ]);
+  const grid = await mapResp.json();
+  const waypoints = await wpResp.json();
+  drawFieldFromGrid(grid, waypoints);
+}
+
+// Start polling immediately since there is no "Start Run" button anymore
+pollTimer = setInterval(pollLatest, 1500);
+
+const btnTakeSample = el('btnTakeSample');
+if (btnTakeSample) {
+  btnTakeSample.addEventListener('click', async () => {
+    btnTakeSample.disabled = true;
+    btnTakeSample.textContent = "Sampling...";
+    try {
+      const res = await fetch('/api/sample', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        alert("Error: " + data.error);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to trigger sample");
+    } finally {
       setTimeout(() => {
         btnTakeSample.disabled = false;
         btnTakeSample.textContent = "Take Sample";
@@ -269,3 +464,43 @@ if (btnTakeSample) {
     }
   });
 }
+
+// Remote Control D-Pad Logic
+const dpadBtns = document.querySelectorAll('.dpad-btn');
+dpadBtns.forEach(btn => {
+  const dir = btn.getAttribute('data-dir');
+  
+  const startDrive = async (e) => {
+    if (e.type === 'touchstart') e.preventDefault();
+    if (dir === 'STOP') return;
+    try {
+      await fetch('/api/drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction: dir, speed: 200 })
+      });
+    } catch(err) { console.error(err); }
+  };
+
+  const stopDrive = async (e) => {
+    if (e && e.type === 'touchend') e.preventDefault();
+    try {
+      await fetch('/api/drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction: 'STOP' })
+      });
+    } catch(err) { console.error(err); }
+  };
+
+  if (dir === 'STOP') {
+    btn.addEventListener('mousedown', stopDrive);
+    btn.addEventListener('touchstart', stopDrive);
+  } else {
+    btn.addEventListener('mousedown', startDrive);
+    btn.addEventListener('mouseup', stopDrive);
+    btn.addEventListener('mouseleave', stopDrive);
+    btn.addEventListener('touchstart', startDrive);
+    btn.addEventListener('touchend', stopDrive);
+  }
+});

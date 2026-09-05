@@ -109,3 +109,25 @@ def trigger_sample():
         logger.error(f"Failed to trigger sample: {e}")
         return jsonify({"error": str(e)}), 500
 
+@api_bp.route("/drive", methods=["POST"])
+def drive_robot():
+    """Manually drive the robot from the web dashboard."""
+    if not mega_link.state["connected"]:
+        return jsonify({"error": "Mega not connected"}), 400
+    
+    data = request.get_json() or {}
+    direction = data.get("direction", "STOP").upper()
+    speed = data.get("speed", 200)
+
+    if direction not in ["FWD", "BACK", "LEFT", "RIGHT", "STOP"]:
+        return jsonify({"error": "Invalid direction"}), 400
+
+    try:
+        if direction == "STOP":
+            mega_link.send_command("STOP")
+        else:
+            mega_link.send_command(f"DRIVE {direction} {speed}")
+        return jsonify({"status": f"Driving {direction}"})
+    except Exception as e:
+        logger.error(f"Failed to trigger drive: {e}")
+        return jsonify({"error": str(e)}), 500

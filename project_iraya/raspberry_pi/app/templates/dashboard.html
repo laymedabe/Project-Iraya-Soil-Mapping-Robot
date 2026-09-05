@@ -130,6 +130,20 @@
 
   <div class="rail">
     <div class="panel">
+      <div class="panel-head"><div class="panel-title">Remote Control</div></div>
+      <div class="remote-dpad" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; justify-items: center; align-items: center; padding: 10px 0;">
+        <div style="grid-column: 2;"><button class="dpad-btn" data-dir="FWD" style="width: 50px; height: 50px; border-radius: 8px; border: 1px solid #3A3428; background: #17140E; color: #B9B09A; cursor: pointer;">▲</button></div>
+        <div style="grid-column: 1; grid-row: 2;"><button class="dpad-btn" data-dir="LEFT" style="width: 50px; height: 50px; border-radius: 8px; border: 1px solid #3A3428; background: #17140E; color: #B9B09A; cursor: pointer;">◀</button></div>
+        <div style="grid-column: 2; grid-row: 2;"><button class="dpad-btn" data-dir="STOP" style="width: 50px; height: 50px; border-radius: 25px; border: 1px solid #c93d3d; background: rgba(201, 61, 61, 0.1); color: #c93d3d; font-size: 11px; font-weight: bold; cursor: pointer;">STOP</button></div>
+        <div style="grid-column: 3; grid-row: 2;"><button class="dpad-btn" data-dir="RIGHT" style="width: 50px; height: 50px; border-radius: 8px; border: 1px solid #3A3428; background: #17140E; color: #B9B09A; cursor: pointer;">▶</button></div>
+        <div style="grid-column: 2; grid-row: 3;"><button class="dpad-btn" data-dir="BACK" style="width: 50px; height: 50px; border-radius: 8px; border: 1px solid #3A3428; background: #17140E; color: #B9B09A; cursor: pointer;">▼</button></div>
+      </div>
+      <div style="text-align: center; margin-top: 5px;">
+        <span class="depth-sub" style="font-size: 10px; color: #7d745e;">Hold directional buttons to drive. Release to stop.</span>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-head"><div class="panel-title">Actuator Insertion</div></div>
       <div class="gauge-row">
         <div class="gauge-visual" id="gaugeVisual">
