@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project DUTA — Digitalized Unified Terrain Assessment</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    @page {
+      size: A4;
+      margin: 25mm 20mm 25mm 25mm;
+    }
+
+    html {
+      font-size: 11pt;
+      color: #1a1a1a;
+      background: #f5f5f0;
+    }
+
+    body {
+      font-family: 'EB Garamond', Georgia, serif;
+      line-height: 1.75;
+      background: #f5f5f0;
+    }
+
+    .page-wrapper {
+      max-width: 850px;
+      margin: 40px auto;
+      background: #fff;
+      box-shadow: 0 4px 40px rgba(0, 0, 0, 0.12);
+      padding: 60px 70px;
+    }
+
+    .cover {
+      text-align: center;
+      padding: 60px 0 80px;
+      border-bottom: 3px solid #2d6a4f;
+      margin-bottom: 60px;
+      page-break-after: always;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #2d6a4f, #40916c);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      padding: 6px 18px;
+      border-radius: 3px;
+      margin-bottom: 30px;
+    }
+
+    .cover h1 {
+      font-family: 'EB Garamond', serif;
+      font-size: 30pt;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #1b2a22;
+      margin-bottom: 8px;
+    }
+
+    .cover .subtitle {
+      font-family: 'EB Garamond', serif;
+      font-size: 14pt;
+      font-style: italic;
+      color: #40916c;
+      margin-bottom: 40px;
+    }
+
+    .cover-divider {
+      width: 80px;
+      height: 3px;
+      background: linear-gradient(90deg, #2d6a4f, #95d5b2);
+      margin: 0 auto 40px;
+      border-radius: 2px;
+    }
+
+    .cover-meta {
+      font-family: 'Inter', sans-serif;
+      font-size: 9.5pt;
+      color: #555;
+      line-height: 2;
+    }
+
+    .cover-meta strong {
+      color: #2d6a4f;
+      font-weight: 600;
+    }
+
+    .cover-logo {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2d6a4f 0%, #52b788 50%, #95d5b2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cover-logo svg {
+      width: 55px;
+      height: 55px;
+    }
+
+    .toc {
+      page-break-after: always;
+      margin-bottom: 60px;
+    }
+
+    .toc h2 {
+      font-family: 'Inter', sans-serif;
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #2d6a4f;
+      margin-bottom: 24px;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid #d8f3dc;
+    }
+
+    .toc-entry {
+      display: flex;
+      align-items: baseline;
+      margin-bottom: 6px;
+      font-size: 10.5pt;
+      color: #222;
+    }
+
+    .toc-entry .toc-num {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      color: #2d6a4f;
+      min-width: 35px;
+    }
+
+    .toc-entry .toc-title {
+      flex: 1;
+    }
+
+    .toc-entry .toc-dots {
+      flex: 1;
+      border-bottom: 1.5px dotted #bbb;
+      margin: 0 8px;
+      position: relative;
+      top: -3px;
+    }
+
+    .toc-entry .toc-page {
+      font-family: 'Inter', sans-serif;
+      font-size: 9pt;
+      color: #555;
+      min-width: 20px;
+      text-align: right;
+    }
+
+    .toc-sub {
+      padding-left: 30px;
+      font-size: 9.5pt;
+      color: #444;
+    }
+
+    section {
+      margin-bottom: 50px;
+    }
+
+    h2.section-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 10pt;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #2d6a4f;
+      margin-bottom: 20px;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid #d8f3dc;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      page-break-after: avoid;
+    }
+
+    h2.section-title .sec-num {
+      display: inline-block;
+      background: #2d6a4f;
+      color: #fff;
+      font-size: 8pt;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 2px;
+    }
+
+    h3 {
+      font-family: 'EB Garamond', serif;
+      font-size: 13pt;
+      font-weight: 600;
+      color: #1b2a22;
+      margin: 28px 0 10px;
+      page-break-after: avoid;
+    }
+
+    h4 {
+      font-family: 'Inter', sans-serif;
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #40916c;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin: 20px 0 8px;
+      page-break-after: avoid;
+    }
+
+    p {
+      text-align: justify;
+      margin-bottom: 12px;
+      font-size: 11pt;
+      hyphens: auto;
+    }
+
+    .abstract-box {
+      background: #f0faf4;
+      border-left: 4px solid #40916c;
+      padding: 20px 24px;
+      margin: 0 0 40px;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .abstract-box .abstract-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #2d6a4f;
+      margin-bottom: 8px;
+    }
+
+    .abstract-box p {
+      font-size: 10.5pt;
+      color: #2d3a2d;
+      margin: 0;
+    }
+
+    .info-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+
+    .info-box .info-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #2d6a4f;
+      margin-bottom: 8px;
+    }
+
+    .warning-box {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 14px 20px;
+      margin: 16px 0;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .warning-box .warn-icon {
+      font-weight: 700;
+      color: #d97706;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 14px 24px;
+    }
+
+    li {
+      margin-bottom: 5px;
+      font-size: 11pt;
+    }
+
+    li::marker {
+      color: #40916c;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5pt;
+      font-family: 'Inter', sans-serif;
+    }
+
+    thead tr {
+      background: #2d6a4f;
+      color: #fff;
+    }
+
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f0faf4;
+    }
+
+    tbody td {
+      padding: 8px 14px;
+      border-bottom: 1px solid #e9ecef;
+      vertical-align: top;
+    }
+
+    pre,
+    code {
+      font-family: 'Fira Code', 'Courier New', monospace;
+      font-size: 8.5pt;
+    }
+
+    code {
+      background: #f0faf4;
+      color: #2d6a4f;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid #d8f3dc;
+    }
+
+    pre {
+      background: #1b2a22;
+      color: #d8f3dc;
+      padding: 16px 20px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 14px 0;
+      line-height: 1.6;
+      page-break-inside: avoid;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      border: none;
+      padding: 0;
+    }
+
+    .arch-diagram {
+      background: #1b2a22;
+      border-radius: 8px;
+      padding: 24px;
+      margin: 20px 0;
+      page-break-inside: avoid;
+    }
+
+    .arch-layer {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: 4px;
+    }
+
+    .arch-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #74c69d;
+      width: 90px;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .arch-block {
+      flex: 1;
+      background: #2d6a4f;
+      border-radius: 4px;
+      padding: 10px 14px;
+      color: #d8f3dc;
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      line-height: 1.4;
+    }
+
+    .arch-block strong {
+      display: block;
+      color: #95d5b2;
+      font-size: 9pt;
+      margin-bottom: 3px;
+    }
+
+    .arch-arrow {
+      text-align: center;
+      color: #52b788;
+      font-size: 11pt;
+      margin: 4px 0 4px 90px;
+    }
+
+    .arch-sub {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-left: 90px;
+    }
+
+    .arch-sub-block {
+      background: #40916c;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5pt;
+      color: #d8f3dc;
+      text-align: center;
+    }
+
+    .components-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .component-card {
+      background: #f8fffe;
+      border: 1px solid #d8f3dc;
+      border-top: 3px solid #40916c;
+      border-radius: 6px;
+      padding: 14px 16px;
+      page-break-inside: avoid;
+    }
+
+    .component-card .card-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #2d6a4f;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .component-card .card-spec {
+      font-family: 'Inter', sans-serif;
+      font-size: 9pt;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .component-card p {
+      font-size: 9pt;
+      color: #555;
+      margin: 0;
+      text-align: left;
+    }
+
+    .steps {
+      counter-reset: step-counter;
+      margin: 16px 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 18px;
+      page-break-inside: avoid;
+    }
+
+    .step-num {
+      counter-increment: step-counter;
+      min-width: 32px;
+      height: 32px;
+      background: #2d6a4f;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      font-size: 9pt;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-num::before {
+      content: counter(step-counter);
+    }
+
+    .step-body h4 {
+      margin-top: 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 10pt;
+      font-weight: 700;
+      color: #1b2a22;
+      letter-spacing: 0;
+      text-transform: none;
+      margin-bottom: 4px;
+    }
+
+    .step-body p {
+      margin: 0;
+      font-size: 10pt;
+      color: #333;
+    }
+
+    .cmd-badge {
+      display: inline-block;
+      background: #1b2a22;
+      color: #95d5b2;
+      font-family: 'Fira Code', monospace;
+      font-size: 8pt;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .flow-steps {
+      position: relative;
+      padding-left: 28px;
+      border-left: 2px solid #52b788;
+      margin: 16px 0;
+    }
+
+    .flow-step {
+      position: relative;
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+    }
+
+    .flow-step::before {
+      content: '';
+      position: absolute;
+      left: -33px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      background: #40916c;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px #40916c;
+    }
+
+    .flow-step .flow-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #2d6a4f;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+
+    .flow-step p {
+      margin: 0;
+      font-size: 10pt;
+    }
+
+    .figure-wrapper {
+      margin: 20px 0;
+      text-align: center;
+      page-break-inside: avoid;
+    }
+
+    .figure-caption {
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      color: #555;
+      font-style: italic;
+      margin-top: 8px;
+    }
+
+    .doc-footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1.5px solid #d8f3dc;
+      text-align: center;
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      color: #888;
+    }
+
+    @media print {
+      html {
+        background: #fff;
+        font-size: 10.5pt;
+      }
+
+      body {
+        background: #fff;
+      }
+
+      .page-wrapper {
+        max-width: 100%;
+        margin: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .cover {
+        page-break-after: always;
+      }
+
+      .toc {
+        page-break-after: always;
+      }
+
+      section {
+        page-break-inside: avoid;
+      }
+
+      h2,
+      h3 {
+        page-break-after: avoid;
+      }
+
+      pre,
+      .arch-diagram,
+      .components-grid,
+      table {
+        page-break-inside: avoid;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+
+    .highlight {
+      color: #2d6a4f;
+      font-weight: 600;
+    }
+
+    .small-caps {
+      font-variant: small-caps;
+      letter-spacing: 0.5px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: #d8f3dc;
+      color: #1b4332;
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .pin-table td:first-child {
+      font-family: 'Fira Code', monospace;
+      font-size: 8.5pt;
+      color: #2d6a4f;
+      font-weight: 500;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page-wrapper">
+
+    <!-- COVER PAGE -->
+    <div class="cover">
+      <div class="cover-logo">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="white">
+          <rect x="18" y="20" width="28" height="22" rx="3" opacity="0.9" />
+          <circle cx="26" cy="28" r="3" fill="#2d6a4f" />
+          <circle cx="38" cy="28" r="3" fill="#2d6a4f" />
+          <rect x="29" y="42" width="6" height="12" rx="2" opacity="0.8" />
+          <circle cx="32" cy="55" r="3" fill="#95d5b2" />
+          <rect x="12" y="36" width="6" height="10" rx="2" opacity="0.7" />
+          <rect x="46" y="36" width="6" height="10" rx="2" opacity="0.7" />
+          <line x1="32" y1="20" x2="32" y2="12" stroke="white" stroke-width="2" opacity="0.9" />
+          <circle cx="32" cy="10" r="2.5" fill="#95d5b2" />
+        </svg>
+      </div>
+      <div class="cover-badge">Technical Research Documentation</div>
+      <h1>Project DUTA</h1>
+      <div class="subtitle">Digitalized Unified Terrain Assessment</div>
+      <div class="cover-divider"></div>
+      <div class="cover-meta">
+        <strong>Full Name:</strong> Digitalized Unified Terrain Assessment<br>
+        <strong>Project Classification:</strong> Embedded Systems &middot; Precision Agriculture &middot; IoT<br>
+        <strong>Target Audience:</strong> High School Researchers &amp; STEM Students<br>
+        <strong>System Version:</strong> v1.00<br>
+        <strong>Platform:</strong> Raspberry Pi 5 + Arduino Mega 2560<br><br>
+        <em>Prepared for educational and research reference purposes.</em>
+      </div>
+    </div>
+
+    <!-- TABLE OF CONTENTS -->
+    <div class="toc">
+      <h2>Table of Contents</h2>
+      <div class="toc-entry"><span class="toc-num">1</span><span class="toc-title">Introduction</span><span
+          class="toc-dots"></span><span class="toc-page">3</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">1.1</span><span class="toc-title">Background &amp;
+          Context</span><span class="toc-dots"></span><span class="toc-page">3</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">1.2</span><span class="toc-title">Problem
+          Statement</span><span class="toc-dots"></span><span class="toc-page">3</span></div>
+      <div class="toc-entry"><span class="toc-num">2</span><span class="toc-title">Objectives</span><span
+          class="toc-dots"></span><span class="toc-page">4</span></div>
+      <div class="toc-entry"><span class="toc-num">3</span><span class="toc-title">System Architecture</span><span
+          class="toc-dots"></span><span class="toc-page">5</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">3.1</span><span class="toc-title">Layered Control
+          Hierarchy</span><span class="toc-dots"></span><span class="toc-page">5</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">3.2</span><span class="toc-title">Raspberry Pi Wi-Fi
+          Hotspot</span><span class="toc-dots"></span><span class="toc-page">6</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">3.3</span><span class="toc-title">Software
+          Components</span><span class="toc-dots"></span><span class="toc-page">7</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">3.4</span><span class="toc-title">Communication
+          Protocol</span><span class="toc-dots"></span><span class="toc-page">8</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">3.5</span><span class="toc-title">Safety Layers</span><span
+          class="toc-dots"></span><span class="toc-page">9</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">3.6</span><span class="toc-title">Data Flow for a Sampling
+          Session</span><span class="toc-dots"></span><span class="toc-page">10</span></div>
+      <div class="toc-entry"><span class="toc-num">4</span><span class="toc-title">Materials &amp;
+          Components</span><span class="toc-dots"></span><span class="toc-page">10</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">4.1</span><span class="toc-title">Hardware
+          Components</span><span class="toc-dots"></span><span class="toc-page">10</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">4.2</span><span class="toc-title">Software &amp;
+          Libraries</span><span class="toc-dots"></span><span class="toc-page">11</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">4.3</span><span class="toc-title">Pin Assignments</span><span
+          class="toc-dots"></span><span class="toc-page">12</span></div>
+      <div class="toc-entry"><span class="toc-num">5</span><span class="toc-title">Instructions for Use</span><span
+          class="toc-dots"></span><span class="toc-page">13</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">5.1</span><span class="toc-title">Hardware Setup &amp;
+          Connections</span><span class="toc-dots"></span><span class="toc-page">13</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">5.2</span><span class="toc-title">Flashing the Arduino
+          Firmware</span><span class="toc-dots"></span><span class="toc-page">13</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">5.3</span><span class="toc-title">Raspberry Pi Software
+          Setup</span><span class="toc-dots"></span><span class="toc-page">14</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">5.4</span><span class="toc-title">Database
+          Initialization</span><span class="toc-dots"></span><span class="toc-page">14</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">5.5</span><span class="toc-title">Running the Robot &amp;
+          Accessing the Dashboard</span><span class="toc-dots"></span><span class="toc-page">15</span></div>
+      <div class="toc-entry toc-sub"><span class="toc-num">5.6</span><span class="toc-title">Operating Modes</span><span
+          class="toc-dots"></span><span class="toc-page">15</span></div>
+      <div class="toc-entry"><span class="toc-num">6</span><span class="toc-title">Soil Nutrient Mapping
+          Algorithm</span><span class="toc-dots"></span><span class="toc-page">16</span></div>
+      <div class="toc-entry"><span class="toc-num">7</span><span class="toc-title">Database Schema</span><span
+          class="toc-dots"></span><span class="toc-page">17</span></div>
+      <div class="toc-entry"><span class="toc-num">8</span><span class="toc-title">Troubleshooting</span><span
+          class="toc-dots"></span><span class="toc-page">18</span></div>
+      <div class="toc-entry"><span class="toc-num">9</span><span class="toc-title">Summary &amp; Conclusions</span><span
+          class="toc-dots"></span><span class="toc-page">19</span></div>
+      <div class="toc-entry"><span class="toc-num">10</span><span class="toc-title">References &amp;
+          Glossary</span><span class="toc-dots"></span><span class="toc-page">20</span></div>
+    </div>
+
+    <!-- SECTION 1: INTRODUCTION -->
+    <section id="intro">
+      <h2 class="section-title"><span class="sec-num">1</span> Introduction</h2>
+      <div class="abstract-box">
+        <div class="abstract-label">Abstract</div>
+        <p><span class="small-caps">Project DUTA</span> (Digitalized Unified Terrain Assessment) is a manually-operated,
+          remote-controlled soil-mapping robot designed to collect and visualize geo-referenced soil nutrient data
+          across agricultural fields. The robot is driven by an operator using an IR remote control; pressing the
+          actuate button deploys the soil probe, reads NPK and related parameters, and automatically records the
+          GPS-tagged measurement. The Raspberry Pi broadcasts its own Wi-Fi hotspot, so the web dashboard is accessible
+          from any connected phone, tablet, or laptop &mdash; <strong>no internet connection is required</strong>. This
+          document provides a complete technical reference for high school researchers building, operating, and
+          extending the system.</p>
+      </div>
+
+      <h3>1.1 Background &amp; Context</h3>
+      <p>Healthy soil is the foundation of productive agriculture. The three primary macronutrients &mdash; <span
+          class="highlight">Nitrogen (N)</span>, <span class="highlight">Phosphorus (P)</span>, and <span
+          class="highlight">Potassium (K)</span> &mdash; directly influence plant growth, crop yield, and soil health.
+        Traditional soil testing requires manual collection of soil samples, laboratory analysis, and several days of
+        waiting. This process is labor-intensive, expensive, and produces data at too coarse a resolution to support
+        <em>precision agriculture</em> &mdash; the practice of applying fertilizer and water only where and in the
+        amounts that each zone of a field truly needs.</p>
+      <p>Advances in low-cost embedded electronics, wireless communication, and GPS technology now make it feasible for
+        a student-built robot to perform the same type of geo-referenced, multi-point soil measurement that previously
+        required professional equipment costing tens of thousands of pesos. Project DUTA was conceived to demonstrate
+        this possibility and to serve as a working research platform for precision agriculture education.</p>
+
+      <h3>1.2 Problem Statement</h3>
+      <p>The core challenge addressed by Project DUTA is the <em>spatial resolution problem</em> in soil nutrient
+        measurement. A single aggregate laboratory test for an entire field masks the significant variation in nutrient
+        levels that exists even within a small plot. Without knowing <em>where</em> soil is deficient or excessive in a
+        given nutrient, fertilizer applications cannot be targeted &mdash; leading to waste, runoff, and suboptimal
+        plant growth.</p>
+      <p>Project DUTA enables researchers to manually drive the robot across a field using an IR remote, stopping at
+        chosen locations to take in-situ NPK readings. At each stop, pressing the actuate button on the remote triggers
+        the probe deployment automatically &mdash; extending the sensor into the soil, reading all seven parameters, and
+        retracting &mdash; while the GPS coordinates are recorded. The Raspberry Pi then interpolates a continuous
+        nutrient map from the collected measurements, viewable in real-time on any Wi-Fi-connected device.</p>
+    </section>
+
+    <!-- SECTION 2: OBJECTIVES -->
+    <section id="objectives">
+      <h2 class="section-title"><span class="sec-num">2</span> Objectives</h2>
+      <h3>General Objective</h3>
+      <p>To design, build, and validate a manually-operated, IR remote-controlled soil-mapping robot capable of
+        collecting geo-referenced NPK, moisture, pH, electrical conductivity, and temperature readings at
+        operator-selected field locations, and displaying the data as an interpolated nutrient map on a web-based
+        dashboard accessible over a local Wi-Fi network.</p>
+      <h3>Specific Objectives</h3>
+      <ol>
+        <li><strong>Hardware Integration:</strong> Interface a 7-in-1 RS485 Modbus NPK soil sensor, a NEO-M8 GPS module,
+          and dual BTS7960 motor drivers with an Arduino Mega 2560 to create a unified real-time control layer.</li>
+        <li><strong>Safe Layered Control:</strong> Implement a two-tier control hierarchy (Arduino Mega for real-time
+          hardware I/O and safety; Raspberry Pi 5 for mission planning, data storage, and web serving) with multiple
+          independent safety watchdogs.</li>
+        <li><strong>One-Button Soil Sampling:</strong> Achieve a fully automated probe cycle triggered by a single IR
+          remote button press &mdash; the robot stops, lowers the probe via a linear actuator, waits for the sensor to
+          stabilize, reads all NPK parameters, and retracts the probe &mdash; without any further operator action during
+          the ~24-second cycle.</li>
+        <li><strong>Real-Time Visualization:</strong> Display live sensor readings and a color-coded interpolated soil
+          nutrient heat map on a web dashboard accessible from any browser on the field Wi-Fi network.</li>
+        <li><strong>Data Persistence &amp; Export:</strong> Store all readings in a structured database (MariaDB on the
+          Pi, with SQLite fallback) and support syncing data to a cloud database when an Internet connection is
+          available.</li>
+        <li><strong>Multiple Control Modes:</strong> Support two control inputs &mdash; IR remote (primary field
+          control) and an optional auto-cycle mode &mdash; while the web dashboard serves exclusively for real-time
+          monitoring and mapping.</li>
+      </ol>
+    </section>
+
+    <!-- SECTION 3: SYSTEM ARCHITECTURE -->
+    <section id="architecture">
+      <h2 class="section-title"><span class="sec-num">3</span> System Architecture</h2>
+
+      <h3>3.1 Layered Control Hierarchy</h3>
+      <p>Project DUTA is built on a <em>layered control</em> principle: the system is divided into two distinct
+        computational layers that communicate through a well-defined, line-based serial protocol. This separation
+        provides reliability, safety, and maintainability &mdash; each layer only does what it is best suited for.</p>
+
+      <p><em>[Insert Lucidchart System Architecture Diagram Here]</em></p>
+
+      <p>The key design decision is that <strong>the Raspberry Pi never controls motors or the actuator
+          directly</strong>. It sends only high-level text commands (<code>DRIVE</code>, <code>STOP</code>,
+        <code>SAMPLE</code>) over the serial link. All real-time hardware I/O is handled exclusively by the Arduino
+        Mega.</p>
+      <p>This separation was chosen for three reasons:</p>
+      <ol>
+        <li><strong>Timing Guarantees:</strong> Python running on a general-purpose OS cannot reliably guarantee motor
+          PWM timing under load. The Arduino Mega's bare-metal C++ loop has no such interference.</li>
+        <li><strong>Network-Independent Safety:</strong> If Wi-Fi drops while the probe is in the soil, the Arduino's
+          onboard watchdog timer automatically stops all motion after 400ms &mdash; no command from the Pi required.
+        </li>
+        <li><strong>Fault Isolation:</strong> A Flask crash or Pi reboot cannot leave the motors in a dangerous state,
+          because the Mega enforces its watchdog timeout independently.</li>
+      </ol>
+
+      <h3>3.2 Raspberry Pi Wi-Fi Hotspot (No Internet Required)</h3>
+      <p>A critical design feature of Project DUTA is that the Raspberry Pi itself acts as a <strong>Wi-Fi access point
+          (hotspot)</strong> rather than connecting to an external network. This means the system is <strong>completely
+          field-deployable with no internet connection required</strong> &mdash; ideal for use in remote agricultural
+        areas where cellular or broadband coverage may be unavailable.</p>
+      <div class="info-box">
+        <div class="info-title">&#128246; How the Hotspot Works</div>
+        <ol style="margin: 8px 0 0 18px;">
+          <li>When the Raspberry Pi boots, it configures its built-in Wi-Fi adapter (<code>wlan0</code>) as a standalone
+            access point using <code>hostapd</code> and assigns a static IP via <code>dhcpcd</code> or
+            <code>NetworkManager</code>.</li>
+          <li>The Pi assigns itself the address <code>192.168.4.1</code> and acts as a DHCP server for connected
+            clients.</li>
+          <li>Any device (phone, tablet, laptop) that connects to the Pi's hotspot SSID can immediately open a browser
+            and navigate to <code>http://192.168.4.1:5000</code> to access the live dashboard.</li>
+          <li>The Flask application, database, GPS reader, and serial link to the Arduino all run locally on the Pi
+            &mdash; the dashboard is fully self-contained.</li>
+        </ol>
+      </div>
+      <div class="warning-box"><span class="warn-icon">&#9432; Note:</span> Because the Pi's Wi-Fi is used as a hotspot,
+        it <em>cannot simultaneously connect to an external Wi-Fi router</em>. Cloud sync (when available) requires
+        either a USB 4G dongle or temporarily switching the Pi's network mode after the field session.</div>
+
+
+      <h4>Raspberry Pi &mdash; Flask Application (<code>raspberry_pi/app/</code>)</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>__init__.py</code></td>
+              <td>Application factory. Creates the Flask app, registers blueprints and SocketIO.</td>
+            </tr>
+            <tr>
+              <td><code>config.py</code></td>
+              <td>Central configuration &mdash; reads serial port, database credentials, GPS settings, and simulation
+                flags from <code>.env</code>.</td>
+            </tr>
+            <tr>
+              <td><code>serial_comm.py</code></td>
+              <td>UART bridge to the Arduino Mega. A background thread reads lines from the serial port and pushes
+                parsed events onto an in-memory queue.</td>
+            </tr>
+            <tr>
+              <td><code>gps_reader.py</code></td>
+              <td>Reads NMEA sentences from the NEO-M8 GPS module (GPRMC and GPGGA). Provides
+                lat/lon/altitude/satellites/HDOP. Includes simulation mode.</td>
+            </tr>
+            <tr>
+              <td><code>models.py</code></td>
+              <td>Data access layer supporting both MariaDB (production) and SQLite (development). Manages sessions,
+                waypoints, readings, and system events.</td>
+            </tr>
+            <tr>
+              <td><code>interpolation.py</code></td>
+              <td>Inverse Distance Weighting (IDW) algorithm that converts discrete geo-tagged readings into a
+                continuous 2D grid for heat-map rendering.</td>
+            </tr>
+            <tr>
+              <td><code>sockets.py</code></td>
+              <td>Flask-SocketIO event handlers for the manual drive control panel. Includes a server-side heartbeat
+                watchdog.</td>
+            </tr>
+            <tr>
+              <td><code>routes/api.py</code></td>
+              <td>REST API endpoints: session management, latest readings, map data generation, and manual sample
+                triggers.</td>
+            </tr>
+            <tr>
+              <td><code>routes/dashboard.py</code></td>
+              <td>Serves the Jinja2-rendered HTML dashboard and drive panel pages.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Arduino Mega &mdash; Firmware (<code>arduino_mega/project_duta_mega/</code>)</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>project_duta_mega.ino</code></td>
+              <td>Main sketch. Orchestrates IR remote handler, serial command handler, actuator state machine,
+                auto-cycle state machine, and E-STOP interrupt.</td>
+            </tr>
+            <tr>
+              <td><code>config.h</code></td>
+              <td>Centralized pin assignments and tunable timing constants. All hardware wiring decisions are made here.
+              </td>
+            </tr>
+            <tr>
+              <td><code>drive_control.h/.cpp</code></td>
+              <td>Skid-steer motor mixing. Translates direction commands into BTS7960 PWM and enable signals. Contains
+                the 400ms watchdog timer.</td>
+            </tr>
+            <tr>
+              <td><code>actuator_control.h/.cpp</code></td>
+              <td>Non-blocking state machine: ACT_EXTENDING &rarr; ACT_HOLDING &rarr; ACT_RETRACTING &rarr; ACT_IDLE.
+                Durations are configurable in <code>config.h</code>.</td>
+            </tr>
+            <tr>
+              <td><code>npk_sensor.h/.cpp</code></td>
+              <td>RS485 Modbus RTU driver for the 7-in-1 soil sensor. Reads N/P/K/Moisture/Temperature/EC/pH.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.3 Communication Protocol</h3>
+      <p>The Raspberry Pi and Arduino Mega communicate over USB serial at <strong>9600 baud</strong>. All messages are
+        plain-text, newline-terminated lines. This makes the protocol easy to debug with any terminal emulator.</p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Command / Message</th>
+              <th>Direction</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="cmd-badge">DRIVE &lt;DIR&gt; &lt;speed&gt;</span></td>
+              <td>Pi &rarr; Mega</td>
+              <td>Sets drive state. Direction: FWD, BACK, LEFT, RIGHT. Speed: 0&ndash;255. Must be resent every ~150ms
+                as heartbeat; otherwise watchdog stops motors.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">STOP</span></td>
+              <td>Pi &rarr; Mega</td>
+              <td>Immediate motor cutoff. Cancels auto-cycle if active.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">SAMPLE</span></td>
+              <td>Pi &rarr; Mega</td>
+              <td>Triggers full sampling sequence: extend actuator &rarr; wait &rarr; read NPK &rarr; retract. Takes ~24
+                seconds total.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">GOTO &lt;lat&gt; &lt;lon&gt;</span></td>
+              <td>Pi &rarr; Mega</td>
+              <td>Informational waypoint notification for logging.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">START_AUTO</span></td>
+              <td>Pi &rarr; Mega</td>
+              <td>Starts the optional auto-cycle mode: drives forward 10s &rarr; stops &rarr; samples &rarr; repeats.
+                Used on flat, unobstructed terrain when the operator chooses to enable it.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">STOP_AUTO</span></td>
+              <td>Pi &rarr; Mega</td>
+              <td>Cancels auto-cycle, stops motors, returns to IDLE.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">ACK &lt;cmd&gt;</span></td>
+              <td>Mega &rarr; Pi</td>
+              <td>Command received and accepted.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">STATUS &lt;state&gt;</span></td>
+              <td>Mega &rarr; Pi</td>
+              <td>Current state: IDLE, MOVING, ALIGNED, LOWERING, READING, RETRACTING, AUTO_DRIVING, AUTO_SAMPLING.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">DATA N=.. P=.. K=..</span></td>
+              <td>Mega &rarr; Pi</td>
+              <td>NPK + moisture + temperature + EC + pH reading, once per completed SAMPLE.</td>
+            </tr>
+            <tr>
+              <td><span class="cmd-badge">FAULT &lt;code&gt;</span></td>
+              <td>Mega &rarr; Pi</td>
+              <td>Safety trip: ESTOP_TRIGGERED, ACTUATOR_BUSY, or AUTO_ALREADY_RUNNING.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.4 Safety Layers</h3>
+      <ol>
+        <li><strong>Physical E-STOP Button</strong> &mdash; Wired directly into motor driver enable lines. Pressing it
+          immediately cuts motor power regardless of software state. Non-negotiable for safe operation near people.</li>
+        <li><strong>Arduino Mega Watchdog (400ms)</strong> &mdash; If no fresh DRIVE command arrives within 400ms, the
+          Mega forces all motors to zero. Entirely local to the Mega; does not depend on the Pi.</li>
+        <li><strong>Flask WebSocket Disconnect Handler</strong> &mdash; When the browser's WebSocket drops, the Pi
+          immediately sends STOP. Typically faster than the 400ms watchdog, but is a convenience layer, not the primary
+          safety guarantee.</li>
+        <li><strong>Actuator Time Bounds</strong> &mdash; The actuator sequence is time-bounded by constants in
+          <code>config.h</code>. The Mega never drives the actuator beyond these limits, preventing mechanical damage
+          even if the Pi stops sending commands.</li>
+      </ol>
+
+      <h3>3.5 Data Flow for a Sampling Session</h3>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-label">Step 1 &mdash; Session Start</div>
+          <p>Operator clicks <em>Start Session</em> in the browser. Browser calls <code>POST /api/session/start</code>
+            &rarr; Flask creates a <code>sessions</code> row and returns a <code>session_id</code>.</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-label">Step 2 &mdash; Navigate to Waypoint</div>
+          <p>Flask sends <code>GOTO &lt;lat&gt; &lt;lon&gt;</code> over serial, then streams <code>DRIVE</code> commands
+            derived from GPS feedback to steer toward the target coordinates.</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-label">Step 3 &mdash; Sample Command</div>
+          <p>Flask sends <code>SAMPLE</code>. Mega acknowledges, stops motors, and begins actuator sequence: extend (7s)
+            &rarr; hold and read NPK (10s) &rarr; retract (7s).</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-label">Step 4 &mdash; NPK Data Capture</div>
+          <p>During holding phase, the Mega queries the RS485 sensor via Modbus RTU. The 7-in-1 sensor returns N, P, K,
+            Moisture, Temperature, EC, and pH. These values are printed over serial.</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-label">Step 5 &mdash; GPS Tagging &amp; Database Write</div>
+          <p>The Pi's <code>serial_comm.py</code> background thread parses the sensor output, reads the current GPS
+            position from <code>gps_reader.py</code>, then calls <code>models.insert_reading()</code> to write the
+            geo-tagged measurement to MariaDB.</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-label">Step 6 &mdash; Map Update</div>
+          <p>Dashboard polls <code>GET /api/map</code>. Flask calls <code>interpolation.py</code> which applies IDW to
+            all readings and returns a 50x50 grid. The browser renders this as a color-coded nutrient heat map.</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-label">Step 7 &mdash; Session End &amp; Export</div>
+          <p>Operator clicks <em>End Session</em>. Flask sets status to <code>completed</code> and records the end time.
+            Data can be synced to the cloud via <code>scripts/sync_to_cloud.py</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: MATERIALS & COMPONENTS -->
+    <section id="materials">
+      <h2 class="section-title"><span class="sec-num">4</span> Materials &amp; Components</h2>
+
+      <h3>4.1 Hardware Components</h3>
+      <div class="components-grid">
+        <div class="component-card">
+          <div class="card-title">&#128421; Single-Board Computer</div>
+          <div class="card-spec">Raspberry Pi 5 (4GB or 8GB RAM)</div>
+          <p>Supervisory computing layer. Runs Flask, GPS reader, MariaDB, and Wi-Fi hotspot. Requires Raspberry Pi OS
+            Bookworm 64-bit.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#129302; Microcontroller</div>
+          <div class="card-spec">Arduino Mega 2560</div>
+          <p>Real-time control layer. Manages all PWM motor signals, relay switching, RS485 Modbus, watchdog timer, IR
+            remote, and E-STOP interrupt.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#128295; Motor Drivers (x2)</div>
+          <div class="card-spec">BTS7960 43A H-Bridge Module</div>
+          <p>High-current H-bridge driver for each side of the skid-steer chassis. Handles up to 43A continuous with
+            built-in overtemperature and overcurrent protection.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#127807; Soil Sensor</div>
+          <div class="card-spec">7-in-1 RS485 Modbus NPK Sensor</div>
+          <p>Measures N, P, K (mg/kg), Moisture (%), Temperature (&deg;C), Electrical Conductivity (&mu;S/cm), and pH.
+            Communicates via RS485 Modbus RTU through a MAX485 adapter.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#128225; GPS Module</div>
+          <div class="card-spec">u-blox NEO-M8N (or compatible)</div>
+          <p>Provides NMEA sentences with latitude, longitude, altitude, satellite count, and HDOP. Achieves ~2.5m
+            horizontal accuracy under open sky.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#9889; Probe Deployment</div>
+          <div class="card-spec">Linear Actuator + 2-Ch. Power Relay</div>
+          <p>The linear actuator physically inserts the NPK probe into the soil and retracts it. Controlled by a
+            2-channel active-LOW relay module on the Arduino.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#128251; IR Remote Receiver</div>
+          <div class="card-spec">VS1838B (38kHz) + NEC Remote</div>
+          <p><strong>Primary field control.</strong> Drives the robot Forward, Backward, Left, Right, Stop, and triggers
+            the full Actuate (soil sample) sequence &mdash; all via the IRremote library (NEC protocol). Works entirely
+            independently of the Raspberry Pi and requires no Wi-Fi connection.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#128308; Emergency Stop</div>
+          <div class="card-spec">Mushroom-head NC push button</div>
+          <p>Wired in series with motor driver enable lines. Hardware-level motor cut-off independent of all software.
+            <strong>Non-negotiable for safe operation near people.</strong></p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#128276; RS485 Adapter</div>
+          <div class="card-spec">MAX485 TTL-to-RS485 Module</div>
+          <p>Converts Arduino 5V UART to differential RS485 levels. A single DE/RE control pin manages bus direction.
+            Connected to Arduino analog pins A2&ndash;A4.</p>
+        </div>
+        <div class="component-card">
+          <div class="card-title">&#128740; Chassis</div>
+          <div class="card-spec">4WD Skid-Steer Rover Platform</div>
+          <p>Four-wheel-drive chassis with no steering linkage. Turning is achieved by driving opposite sides at
+            different speeds. The <code>drive_control.cpp</code> module handles left/right motor mixing.</p>
+        </div>
+      </div>
+
+      <h3>4.2 Software &amp; Libraries</h3>
+      <div class="two-col">
+        <div>
+          <h4>Raspberry Pi (Python)</h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Library</th>
+                  <th>Version</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Flask</td>
+                  <td>3.0.3</td>
+                  <td>Web framework &amp; REST API</td>
+                </tr>
+                <tr>
+                  <td>Flask-SocketIO</td>
+                  <td>5.3.6</td>
+                  <td>Real-time WebSocket events</td>
+                </tr>
+                <tr>
+                  <td>pyserial</td>
+                  <td>3.5</td>
+                  <td>UART serial communication</td>
+                </tr>
+                <tr>
+                  <td>PyMySQL</td>
+                  <td>1.1.0</td>
+                  <td>MariaDB database driver</td>
+                </tr>
+                <tr>
+                  <td>numpy</td>
+                  <td>latest</td>
+                  <td>IDW interpolation grid math</td>
+                </tr>
+                <tr>
+                  <td>python-dotenv</td>
+                  <td>1.0.1</td>
+                  <td>Environment variable loading</td>
+                </tr>
+                <tr>
+                  <td>pynmea2</td>
+                  <td>1.19.0</td>
+                  <td>NMEA GPS sentence parser</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4>Arduino Mega (C++)</h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Library</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>IRremote (v4.x)</td>
+                  <td>IR remote decoding (NEC protocol)</td>
+                </tr>
+                <tr>
+                  <td>TinyGPS++</td>
+                  <td>GPS NMEA parsing on Mega</td>
+                </tr>
+                <tr>
+                  <td>Arduino.h</td>
+                  <td>Core Arduino HAL (built-in)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h4>Database &amp; OS</h4>
+          <ul>
+            <li><strong>MariaDB</strong> &mdash; production database on Pi</li>
+            <li><strong>SQLite</strong> &mdash; automatic fallback for development</li>
+            <li>Raspberry Pi OS Bookworm (64-bit, Debian 12)</li>
+            <li>Python 3.11+</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>4.3 Pin Assignments (Arduino Mega 2560)</h3>
+      <div class="table-wrapper">
+        <table class="pin-table">
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Constant</th>
+              <th>Connected To</th>
+              <th>Function</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>D2</td>
+              <td>IR_RECEIVE_PIN</td>
+              <td>VS1838B IR receiver</td>
+              <td>IR signal input</td>
+            </tr>
+            <tr>
+              <td>D3</td>
+              <td>ESTOP_PIN</td>
+              <td>E-STOP button (NC)</td>
+              <td>Hardware interrupt (FALLING)</td>
+            </tr>
+            <tr>
+              <td>D4</td>
+              <td>R_R_EN</td>
+              <td>BTS7960 Right #2 R_EN</td>
+              <td>Right motor driver enable</td>
+            </tr>
+            <tr>
+              <td>D5</td>
+              <td>L_RPWM</td>
+              <td>BTS7960 Left #1 RPWM</td>
+              <td>Left motor forward PWM</td>
+            </tr>
+            <tr>
+              <td>D6</td>
+              <td>L_LPWM</td>
+              <td>BTS7960 Left #1 LPWM</td>
+              <td>Left motor reverse PWM</td>
+            </tr>
+            <tr>
+              <td>D7</td>
+              <td>L_R_EN</td>
+              <td>BTS7960 Left #1 R_EN</td>
+              <td>Left motor driver enable</td>
+            </tr>
+            <tr>
+              <td>D8</td>
+              <td>L_L_EN</td>
+              <td>BTS7960 Left #1 L_EN</td>
+              <td>Left motor driver enable</td>
+            </tr>
+            <tr>
+              <td>D9</td>
+              <td>R_RPWM</td>
+              <td>BTS7960 Right #2 RPWM</td>
+              <td>Right motor forward PWM</td>
+            </tr>
+            <tr>
+              <td>D10</td>
+              <td>R_LPWM</td>
+              <td>BTS7960 Right #2 LPWM</td>
+              <td>Right motor reverse PWM</td>
+            </tr>
+            <tr>
+              <td>D12</td>
+              <td>R_L_EN</td>
+              <td>BTS7960 Right #2 L_EN</td>
+              <td>Right motor driver enable</td>
+            </tr>
+            <tr>
+              <td>A0</td>
+              <td>RELAY_ACT_1</td>
+              <td>Relay Module IN1</td>
+              <td>Actuator Lead 1 (active-LOW)</td>
+            </tr>
+            <tr>
+              <td>A1</td>
+              <td>RELAY_ACT_2</td>
+              <td>Relay Module IN2</td>
+              <td>Actuator Lead 2 (active-LOW)</td>
+            </tr>
+            <tr>
+              <td>A2</td>
+              <td>RS485_RX</td>
+              <td>MAX485 RO pin</td>
+              <td>RS485 receive</td>
+            </tr>
+            <tr>
+              <td>A3</td>
+              <td>RS485_TX</td>
+              <td>MAX485 DI pin</td>
+              <td>RS485 transmit</td>
+            </tr>
+            <tr>
+              <td>A4</td>
+              <td>RS485_DE_RE</td>
+              <td>MAX485 DE+RE (tied)</td>
+              <td>RS485 direction control</td>
+            </tr>
+            <tr>
+              <td>USB (Serial0)</td>
+              <td>PI_SERIAL</td>
+              <td>Raspberry Pi USB port</td>
+              <td>Command protocol at 9600 baud</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 5: INSTRUCTIONS FOR USE -->
+    <section id="instructions">
+      <h2 class="section-title"><span class="sec-num">5</span> Instructions for Use</h2>
+
+      <div class="warning-box"><span class="warn-icon">&#9888; Safety First:</span> Always test the E-STOP button before
+        each operating session. Never operate the robot near people without a functioning E-STOP. Keep fingers and
+        clothing clear of wheels and the linear actuator.</div>
+
+      <h3>5.1 Hardware Setup &amp; Connections</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect Arduino Mega to Raspberry Pi</h4>
+            <p>Use a USB Type-A to Type-B cable. Plug into any USB port on the Pi. The Pi identifies the Arduino as
+              <code>/dev/ttyACM0</code> (verify with <code>ls /dev/tty*</code>).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect motor drivers and motors</h4>
+            <p>Left-side motors &rarr; BTS7960 Driver #1 (L_RPWM=D5, L_LPWM=D6, L_R_EN=D7, L_L_EN=D8). Right-side motors
+              &rarr; BTS7960 Driver #2 (R_RPWM=D9, R_LPWM=D10, R_R_EN=D4, R_L_EN=D12). Connect 7&ndash;12V DC motor
+              power to driver supply terminals.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect the NPK sensor and MAX485 adapter</h4>
+            <p>MAX485: RO&rarr;A2, DI&rarr;A3, DE+RE (tied)&rarr;A4, VCC&rarr;5V, GND&rarr;GND. NPK sensor RS485 A/B
+              lines &rarr; MAX485 A/B. Sensor power 12V &rarr; sensor VCC.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect the linear actuator relay</h4>
+            <p>Relay: IN1&rarr;A0, IN2&rarr;A1, VCC&rarr;5V, GND&rarr;GND. Wire actuator leads through relay Common and
+              NO terminals. Match relay supply voltage to actuator (typically 12V).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Wire and test the E-STOP button</h4>
+            <p>Wire NC button in series with motor driver enable lines. Also connect one terminal to D3, other to GND
+              (<code>INPUT_PULLUP</code> active). Press to confirm all motors stop immediately before operating.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect the GPS module</h4>
+            <p>Connect NEO-M8 to the Raspberry Pi's serial port. Set <code>GPS_PORT</code> in <code>.env</code> (e.g.,
+              <code>/dev/ttyS0</code>). Ensure a clear outdoor view of the sky for GPS fix.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>5.2 Flashing the Arduino Firmware</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect Arduino to your development PC</h4>
+            <p>Disconnect from Raspberry Pi first. Connect to laptop/PC via USB for programming.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Open the firmware sketch</h4>
+            <p>Open <code>arduino_mega/project_duta_mega/project_duta_mega.ino</code> in Arduino IDE (v2.x recommended)
+              or PlatformIO.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Review pin assignments in config.h</h4>
+            <p>Verify all pin numbers match your physical wiring. This is the <em>only</em> file you should change to
+              adapt to different hardware configurations.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Install required libraries</h4>
+            <p>Arduino IDE: <em>Sketch &rarr; Include Library &rarr; Manage Libraries</em>. Install
+              <strong>IRremote</strong> (by Armin Joachimsmeyer, v4.x) and <strong>TinyGPS++</strong> if needed.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Select board and port, then upload</h4>
+            <p>Tools &rarr; Board: <strong>Arduino Mega 2560</strong>. Tools &rarr; Port: select correct COM port. Click
+              <strong>Upload</strong> and wait for "Done uploading."</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Verify in Serial Monitor</h4>
+            <p>Open Serial Monitor at <strong>9600 baud</strong>. You should see the DUTA banner and
+              <code>STATUS IDLE</code>. Reconnect Arduino to Raspberry Pi after verification.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>5.3 Raspberry Pi Software Setup</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Navigate to the project directory</h4>
+            <pre><code>cd project_duta/raspberry_pi</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Create a Python virtual environment</h4>
+            <pre><code>python3 -m venv venv
+source venv/bin/activate</code></pre>
+            <p>The <code>(venv)</code> prefix should appear in your prompt.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Install dependencies</h4>
+            <pre><code>pip install -r requirements.txt</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Configure environment variables</h4>
+            <pre><code>cp .env.example .env
+nano .env</code></pre>
+            <p>Set <code>DUTA_SERIAL_PORT</code> (e.g., <code>/dev/ttyACM0</code>),
+              <code>DUTA_SERIAL_SIMULATE=false</code> for real hardware, and database credentials matching your MariaDB
+              installation.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>5.4 Database Initialization</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Install and start MariaDB</h4>
+            <pre><code>sudo apt install mariadb-server -y
+sudo systemctl enable --now mariadb</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Load the database schema</h4>
+            <pre><code>mysql -u root -p &lt; database/schema.sql</code></pre>
+            <p>Creates the <code>DUTA</code> database and all tables (sessions, waypoints, readings, system_events).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Run the initialization script</h4>
+            <pre><code>python scripts/init_db.py</code></pre>
+            <p>Verifies database connection, creates a demo session, and confirms the schema was applied correctly.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <div class="info-title">&#128161; Development Without Hardware</div>
+        <p>Set <code>DUTA_SERIAL_SIMULATE=true</code> and <code>DUTA_GPS_SIMULATE=true</code> in <code>.env</code>. The
+          application runs a software-simulated Arduino Mega and GPS module, enabling full dashboard testing on a laptop
+          without hardware. SQLite also allows running without MariaDB.</p>
+      </div>
+
+      <h3>5.5 Running the Robot &amp; Accessing the Dashboard</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Power the robot</h4>
+            <p>Turn on the main power supply to the robot. The Raspberry Pi and Arduino Mega will boot up automatically.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Wait for hotspot</h4>
+            <p>The Raspberry Pi will automatically initialize and broadcast its Wi-Fi hotspot.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Connect to its Wi-Fi</h4>
+            <p>On your phone, tablet, or laptop, open Wi-Fi settings and connect to the robot's network (e.g.,
+              <strong>duta</strong>).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Enter the password</h4>
+            <p>When prompted, enter the hotspot password (e.g., <code>duta1234</code>).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Open the browser</h4>
+            <p>Navigate to <code>http://192.168.4.1:5000</code> in any browser to access the live dashboard and view the
+              soil data map.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>5.6 Operating Modes</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>How to Activate</th>
+              <th>Best Used When</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>IR Remote Control</strong></td>
+              <td>Point NEC IR remote at the receiver on the robot.</td>
+              <td><strong>Primary field control.</strong> Drives the robot and triggers soil sampling without needing
+                Wi-Fi or a connected device. Works fully independently of the Raspberry Pi.</td>
+            </tr>
+            <tr>
+              <td><strong>Auto-Cycle Mode</strong></td>
+              <td>Send <code>START_AUTO</code> from the serial monitor (if attached).</td>
+              <td>Optional mode for flat, unobstructed terrain. The robot drives forward 10s then samples; repeats until
+                stopped by the operator.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 6: SOIL NUTRIENT MAPPING ALGORITHM -->
+    <section id="algorithm">
+      <h2 class="section-title"><span class="sec-num">6</span> Soil Nutrient Mapping Algorithm</h2>
+
+      <h3>Inverse Distance Weighting (IDW)</h3>
+      <p>After collecting discrete NPK readings at GPS-tagged locations, the system must estimate nutrient values at all
+        other points in the field to produce a continuous map. Project DUTA uses the <strong>Inverse Distance Weighting
+          (IDW)</strong> algorithm, a standard spatial interpolation method widely used in precision-agriculture soil
+        mapping literature.</p>
+
+      <div class="figure-wrapper"
+        style="background:#f0faf4; padding:18px; border-radius:6px; font-family:'Fira Code', monospace; font-size:10pt;">
+        Z(p) = &Sigma; [ w<sub>i</sub> &times; Z<sub>i</sub> ] / &Sigma; w<sub>i</sub><br>
+        <span style="font-size:9pt; color:#555; font-family:'EB Garamond', serif;">where &nbsp; w<sub>i</sub> = 1 / d(p,
+          p<sub>i</sub>)<sup>2</sup></span>
+      </div>
+
+      <p>Each known sample point <em>p<sub>i</sub></em> with measured value <em>Z<sub>i</sub></em> contributes to the
+        interpolated value at <em>p</em> in inverse proportion to the square of the distance between them. Nearby
+        samples have much greater influence than distant ones. A small epsilon (10<sup>&minus;8</sup>) prevents division
+        by zero when the grid point coincides exactly with a sample location.</p>
+
+      <h4>Implementation Details</h4>
+      <ul>
+        <li><strong>Grid resolution:</strong> 50&times;50 cells over the field's lat/lon bounding box.</li>
+        <li><strong>Power parameter:</strong> 2 (standard for soil nutrient mapping).</li>
+        <li><strong>Nutrients interpolated:</strong> Nitrogen, Phosphorus, Potassium (and optionally Moisture,
+          Temperature, EC, pH).</li>
+        <li><strong>Computation:</strong> Triggered on each <code>GET /api/map</code> request using Python/NumPy on the
+          Raspberry Pi's CPU. Completes in well under 1 second for typical field sizes.</li>
+      </ul>
+
+      <h4>Nutrient Level Classification</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Description</th>
+              <th>Display Color</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Low</strong></td>
+              <td>Value below the low threshold &mdash; soil may be nutrient-deficient.</td>
+              <td>Blue / Cool</td>
+            </tr>
+            <tr>
+              <td><strong>OK</strong></td>
+              <td>Value within the optimal range for typical crops.</td>
+              <td>Green</td>
+            </tr>
+            <tr>
+              <td><strong>High</strong></td>
+              <td>Value exceeds the high threshold &mdash; possible over-fertilization.</td>
+              <td>Red / Warm</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p><em>Note: Thresholds are illustrative and should be calibrated to the specific crop type and local agronomic
+          standards for use in actual farming decisions.</em></p>
+    </section>
+
+    <!-- SECTION 7: DATABASE SCHEMA -->
+    <section id="database">
+      <h2 class="section-title"><span class="sec-num">7</span> Database Schema</h2>
+      <p>All field data is stored in a relational database with four tables. MariaDB is used in production on the
+        Raspberry Pi; the application automatically falls back to SQLite for development environments.</p>
+
+      <h4><code>sessions</code> &mdash; Field survey sessions</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INTEGER PK</td>
+              <td>Auto-incremented session identifier</td>
+            </tr>
+            <tr>
+              <td>field_name</td>
+              <td>TEXT</td>
+              <td>Human-readable field or location name</td>
+            </tr>
+            <tr>
+              <td>started_at</td>
+              <td>DATETIME</td>
+              <td>Session start timestamp</td>
+            </tr>
+            <tr>
+              <td>ended_at</td>
+              <td>DATETIME</td>
+              <td>Session end timestamp (NULL if still running)</td>
+            </tr>
+            <tr>
+              <td>status</td>
+              <td>TEXT</td>
+              <td>running | completed | aborted</td>
+            </tr>
+            <tr>
+              <td>lat_min/max, lon_min/max</td>
+              <td>REAL</td>
+              <td>Bounding box of the sampled area</td>
+            </tr>
+            <tr>
+              <td>notes</td>
+              <td>TEXT</td>
+              <td>Optional researcher notes</td>
+            </tr>
+            <tr>
+              <td>synced_to_cloud</td>
+              <td>INTEGER</td>
+              <td>0 = not synced, 1 = synced to cloud DB</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4><code>readings</code> &mdash; Individual sensor measurements</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td>INTEGER PK</td>
+              <td>Auto-incremented reading identifier</td>
+            </tr>
+            <tr>
+              <td>session_id</td>
+              <td>INTEGER FK</td>
+              <td>References sessions.id</td>
+            </tr>
+            <tr>
+              <td>recorded_at</td>
+              <td>DATETIME</td>
+              <td>Timestamp of the measurement</td>
+            </tr>
+            <tr>
+              <td>lat, lon</td>
+              <td>REAL</td>
+              <td>GPS coordinates at time of reading</td>
+            </tr>
+            <tr>
+              <td>nitrogen</td>
+              <td>REAL</td>
+              <td>Nitrogen concentration (mg/kg)</td>
+            </tr>
+            <tr>
+              <td>phosphorus</td>
+              <td>REAL</td>
+              <td>Phosphorus concentration (mg/kg)</td>
+            </tr>
+            <tr>
+              <td>potassium</td>
+              <td>REAL</td>
+              <td>Potassium concentration (mg/kg)</td>
+            </tr>
+            <tr>
+              <td>moisture</td>
+              <td>REAL</td>
+              <td>Soil moisture (%)</td>
+            </tr>
+            <tr>
+              <td>temperature</td>
+              <td>REAL</td>
+              <td>Soil temperature (&deg;C)</td>
+            </tr>
+            <tr>
+              <td>ec</td>
+              <td>REAL</td>
+              <td>Electrical conductivity (dS/m)</td>
+            </tr>
+            <tr>
+              <td>ph</td>
+              <td>REAL</td>
+              <td>Soil pH</td>
+            </tr>
+            <tr>
+              <td>altitude</td>
+              <td>REAL</td>
+              <td>GPS altitude (meters above sea level)</td>
+            </tr>
+            <tr>
+              <td>satellites</td>
+              <td>INTEGER</td>
+              <td>Number of GPS satellites in view</td>
+            </tr>
+            <tr>
+              <td>hdop</td>
+              <td>REAL</td>
+              <td>Horizontal dilution of precision</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4><code>waypoints</code> &mdash; Planned sampling points per session</h4>
+      <p>Stores a sequence of target GPS coordinates planned for a survey session. Each waypoint can be marked
+        <code>visited=1</code> after the operator drives to it and takes a sample, allowing session progress to be
+        tracked.</p>
+
+      <h4><code>system_events</code> &mdash; Operational log</h4>
+      <p>Records fault conditions, connection events, and system messages with timestamps, severity levels
+        (<code>info</code>, <code>warning</code>, <code>fault</code>), and the source component. Used for post-session
+        analysis and debugging.</p>
+    </section>
+
+    <!-- SECTION 8: TROUBLESHOOTING -->
+    <section id="troubleshooting">
+      <h2 class="section-title"><span class="sec-num">8</span> Troubleshooting</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Likely Cause</th>
+              <th>Solution</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Motors do not move when drive buttons are pressed</td>
+              <td>Wrong serial port, E-STOP engaged, or motor driver not powered</td>
+              <td>Verify <code>DUTA_SERIAL_PORT</code> in <code>.env</code>. Check E-STOP (should be released). Confirm
+                12V supply to motor drivers. Check Arduino Serial Monitor for <code>ACK DRIVE</code>.</td>
+            </tr>
+            <tr>
+              <td>Actuator does not move on SAMPLE command</td>
+              <td>Relay wiring reversed or active-HIGH relay used instead of active-LOW</td>
+              <td>The firmware drives relay inputs LOW to activate. If your relay is active-HIGH, invert the
+                <code>digitalWrite</code> values in <code>actuator_control.cpp</code>.</td>
+            </tr>
+            <tr>
+              <td>NPK sensor returns all zeros</td>
+              <td>RS485 wiring error or incorrect Modbus address</td>
+              <td>Swap the A and B lines between MAX485 and the sensor. Verify DE/RE pin (A4) is HIGH before
+                transmitting. Check 12V sensor power.</td>
+            </tr>
+            <tr>
+              <td>GPS fix not obtained</td>
+              <td>Poor sky view, wrong serial port, or cold start delay</td>
+              <td>Move to open outdoor area. Allow 30&ndash;90 seconds for cold acquisition. Verify
+                <code>GPS_PORT</code> in <code>.env</code>. Set <code>GPS_SIMULATE=true</code> for indoor testing.</td>
+            </tr>
+            <tr>
+              <td>Dashboard shows "Disconnected" or no readings appear</td>
+              <td>Flask app not running, wrong IP, or firewall blocking port 5000</td>
+              <td>Confirm <code>python run.py</code> is running. Verify the Pi's IP address. Ensure port 5000 is open.
+                Try accessing from the Pi's own browser first.</td>
+            </tr>
+            <tr>
+              <td>Robot keeps stopping every ~400ms</td>
+              <td>Drive heartbeat not being sent fast enough</td>
+              <td>Check browser console for WebSocket errors. The drive panel should send events every ~150ms while a
+                button is held. Network latency may be too high.</td>
+            </tr>
+            <tr>
+              <td>MariaDB connection fails, app uses SQLite</td>
+              <td>MariaDB not running or wrong credentials</td>
+              <td>Run <code>sudo systemctl status mariadb</code>. Verify <code>DB_USER</code>, <code>DB_PASSWORD</code>,
+                <code>DB_NAME</code> in <code>.env</code>. Note: SQLite fallback is fully functional for development.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 9: SUMMARY & CONCLUSIONS -->
+    <section id="summary">
+      <h2 class="section-title"><span class="sec-num">9</span> Summary &amp; Conclusions</h2>
+
+      <p><span class="small-caps">Project DUTA</span> demonstrates that a student-built, embedded robotic system can
+        perform meaningful precision-agriculture soil analysis at a fraction of the cost of professional equipment. The
+        key achievements of the project are:</p>
+
+      <h3>What Was Accomplished</h3>
+      <ol>
+        <li><strong>Hardware-in-the-loop integration</strong> of five distinct hardware subsystems (motors, GPS, NPK
+          sensor, linear actuator, and IR remote) into a single coherent robot platform, orchestrated through a clean
+          layered software architecture.</li>
+        <li><strong>Real-time geo-tagged soil measurement:</strong> A single button press on the IR remote triggers the
+          robot to insert the NPK probe, read seven soil parameters simultaneously, tag the measurement with live GPS
+          coordinates, and retract the probe &mdash; all within a 24-second automated cycle requiring no further
+          operator input.</li>
+        <li><strong>Spatial interpolation and visualization:</strong> Using IDW interpolation, discrete point
+          measurements are transformed into continuous nutrient heat maps, enabling spatial patterns in soil health to
+          be identified at field scale.</li>
+        <li><strong>Multiple redundant safety layers</strong> ensure the robot can be operated safely in open-air field
+          environments, with hardware E-STOP, Arduino watchdog, and software disconnect handlers all working
+          independently.</li>
+        <li><strong>Accessibility &amp; field-readiness:</strong> The Raspberry Pi broadcasts its own Wi-Fi hotspot,
+          making the web dashboard accessible from any phone, tablet, or laptop without an internet connection or
+          external router. No app installation is required &mdash; any device with a browser can view live data and
+          control the robot simply by connecting to the Pi's hotspot.</li>
+      </ol>
+
+      <h3>Limitations &amp; Future Work</h3>
+      <ul>
+        <li><strong>Navigation accuracy:</strong> Limited by ~2.5m GPS accuracy of consumer-grade NEO-M8. RTK GPS would
+          enable more precise waypoint navigation.</li>
+        <li><strong>Terrain adaptability:</strong> The 4WD skid-steer chassis suits flat terrain. Rocky, steep, or
+          waterlogged fields require a different chassis design.</li>
+        <li><strong>Battery monitoring:</strong> No automatic battery monitoring. Adding voltage sensing and low-battery
+          return-to-base behavior would improve field reliability.</li>
+        <li><strong>Sensor calibration:</strong> The 7-in-1 NPK sensor provides relative measurements that should be
+          validated against laboratory analysis for quantitative agronomic use.</li>
+        <li><strong>Multi-robot coordination:</strong> Scaling to larger fields could be achieved by running multiple
+          robots in coordinated waypoint grids.</li>
+      </ul>
+
+      <div class="abstract-box" style="margin-top:30px;">
+        <div class="abstract-label">Key Takeaway for Researchers</div>
+        <p>The most important design principle in Project DUTA is the <em>separation of real-time hardware control from
+            supervisory software</em>. By assigning the Arduino Mega full ownership of all time-critical,
+          safety-critical hardware operations, and limiting the Raspberry Pi to mission planning and data management,
+          the system achieves a level of reliability that a single-computer design could not. This principle &mdash;
+          give each layer of a system only the responsibilities it can reliably fulfill &mdash; is fundamental to safe
+          robotics engineering and applies to systems far more complex than Project DUTA.</p>
+      </div>
+    </section>
+
+    <!-- SECTION 10: REFERENCES & GLOSSARY -->
+    <section id="references">
+      <h2 class="section-title"><span class="sec-num">10</span> References &amp; Glossary</h2>
+
+      <h3>Glossary of Key Terms</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Term</th>
+              <th>Definition</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>NPK</strong></td>
+              <td>Nitrogen (N), Phosphorus (P), and Potassium (K) &mdash; the three primary macronutrients in soil.</td>
+            </tr>
+            <tr>
+              <td><strong>IDW</strong></td>
+              <td>Inverse Distance Weighting &mdash; a spatial interpolation algorithm that estimates values at
+                unsampled locations as weighted averages of known data points, with weights inversely proportional to
+                distance.</td>
+            </tr>
+            <tr>
+              <td><strong>Modbus RTU</strong></td>
+              <td>A serial communication protocol used in industrial devices. The NPK sensor exposes its registers over
+                Modbus RTU via RS485.</td>
+            </tr>
+            <tr>
+              <td><strong>RS485</strong></td>
+              <td>A differential serial communication standard for long-distance, noise-resistant communication. Used
+                for the NPK sensor link.</td>
+            </tr>
+            <tr>
+              <td><strong>UART</strong></td>
+              <td>Universal Asynchronous Receiver/Transmitter &mdash; the serial protocol used for the Pi&ndash;Mega
+                link and GPS module.</td>
+            </tr>
+            <tr>
+              <td><strong>NMEA</strong></td>
+              <td>National Marine Electronics Association &mdash; standard sentence format used by GPS modules (e.g.,
+                GPRMC, GPGGA sentences).</td>
+            </tr>
+            <tr>
+              <td><strong>PWM</strong></td>
+              <td>Pulse Width Modulation &mdash; controls motor speed by rapidly switching voltage on/off at a variable
+                duty cycle (0&ndash;255 on the Arduino).</td>
+            </tr>
+            <tr>
+              <td><strong>Skid-Steer</strong></td>
+              <td>4-wheel-drive turning method where opposite sides are driven at different speeds. No separate steering
+                mechanism needed.</td>
+            </tr>
+            <tr>
+              <td><strong>BTS7960</strong></td>
+              <td>A 43A H-bridge motor driver chip controlling direction and speed of a DC motor using PWM signals.</td>
+            </tr>
+            <tr>
+              <td><strong>Flask</strong></td>
+              <td>A lightweight Python web framework used to serve the dashboard and REST API on the Raspberry Pi.</td>
+            </tr>
+            <tr>
+              <td><strong>SocketIO</strong></td>
+              <td>A protocol enabling full-duplex, real-time communication between the browser and Flask server, used
+                for live drive commands and status updates.</td>
+            </tr>
+            <tr>
+              <td><strong>Watchdog Timer</strong></td>
+              <td>A safety mechanism that triggers motor stop if the expected periodic command does not arrive within a
+                defined timeout window.</td>
+            </tr>
+            <tr>
+              <td><strong>HDOP</strong></td>
+              <td>Horizontal Dilution of Precision &mdash; GPS accuracy measure based on satellite geometry. Lower
+                values indicate better accuracy (1.0 is ideal).</td>
+            </tr>
+            <tr>
+              <td><strong>EC</strong></td>
+              <td>Electrical Conductivity &mdash; measured in &mu;S/cm or dS/m. Indicates dissolved salt concentration
+                in soil. Used for salinity assessment.</td>
+            </tr>
+            <tr>
+              <td><strong>Linear Actuator</strong></td>
+              <td>Electromechanical device converting rotary motor motion to straight-line motion &mdash; used to insert
+                the NPK probe into soil and retract it.</td>
+            </tr>
+            <tr>
+              <td><strong>Precision Agriculture</strong></td>
+              <td>A farming management concept based on observing and responding to within-field variability in soil and
+                crops to optimize inputs at the finest possible spatial resolution.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Technical References</h3>
+      <ul>
+        <li>Shepard, D. (1968). "A two-dimensional interpolation function for irregularly-spaced data." <em>Proceedings
+            of the 23rd ACM National Conference</em>, pp. 517&ndash;524. [Foundation paper for IDW]</li>
+        <li>Arduino LLC. (2024). <em>Arduino Mega 2560 Datasheet and Reference.</em> arduino.cc</li>
+        <li>Raspberry Pi Foundation. (2024). <em>Raspberry Pi 5 Technical Specification.</em> raspberrypi.com</li>
+        <li>u-blox AG. (2024). <em>NEO-M8 Series u-blox 8/M8 Receiver Description Including Protocol Specification.</em>
+        </li>
+        <li>Infineon Technologies. (2018). <em>BTS7960 High Current PN Half Bridge Driver Datasheet.</em></li>
+        <li>Maxim Integrated. (2014). <em>MAX485 Low-Power, Slew-Rate-Limited RS-485/RS-422 Transceiver Datasheet.</em>
+        </li>
+        <li>Palma, J.M. et al. (2019). "Soil nutrient variability mapping using low-cost mobile sensor systems."
+          <em>Sensors</em>, 19(3), 494.</li>
+      </ul>
+    </section>
+
+    <div class="doc-footer">
+      <p><strong>Project DUTA</strong> &mdash; Digitalized Unified Terrain Assessment<br>
+        Technical Documentation v1.00 &nbsp;|&nbsp; Prepared September 2026<br>
+        For educational and research reference.</p>
+    </div>
+
+  </div>
+</body>
+
+</html>
