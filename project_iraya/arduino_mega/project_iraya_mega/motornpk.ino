@@ -31,9 +31,14 @@ const int RS485_DE_RE = A4; // RS485 Flow Control (DE and RE tied together)
 
 SoftwareSerial npkSerial(RS485_RX, RS485_TX);
 
-// Modbus RTU Command: Requesting 7 registers starting at address 0x0000
-const byte allParamsRequestFrame[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
-byte allParamsResponseFrame[19]; // 3 header bytes + 14 data bytes + 2 CRC bytes = 19 bytes
+// --- MODBUS RTU COMMAND FRAMES ---
+// Query 1: 4 registers starting at 0x0000 -> Moisture, Temperature, EC, pH
+const byte envRequestFrame[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x04, 0x44, 0x09};
+byte envResponseFrame[13]; // 3 header + 8 data + 2 CRC = 13 bytes
+
+// Query 2: 3 registers starting at 0x001E -> Nitrogen, Phosphorus, Potassium
+const byte npkRequestFrame[] = {0x01, 0x03, 0x00, 0x1E, 0x00, 0x03, 0x65, 0xCD};
+byte npkResponseFrame[11]; // 3 header + 6 data + 2 CRC = 11 bytes
 
 // =========================================================================
 // SPEED & TIMING PARAMETERS
@@ -43,7 +48,7 @@ const int MOTOR_SPEED        = 200;   // Drivetrain PWM Speed (0 to 255)
 const unsigned long EXTEND_TIME  = 7000;  // Actuator extend duration (ms)
 const unsigned long HOLD_TIME    = 10000; // Time probe stays lowered (ms)
 const unsigned long RETRACT_TIME = 7000;  // Actuator retract duration (ms)
-const unsigned long SENSOR_INTERVAL = 1000; // Read sensor every 1 second during hold
+const unsigned long SENSOR_INTERVAL = 2000; // Read sensor every 2 seconds during hold
 
 // =========================================================================
 // IR REMOTE HEX COMMANDS
@@ -63,7 +68,7 @@ const unsigned long IR_ACTUATE  = 0xBF40FF00; // Triggers Linear Actuator Sequen
 enum ActuatorState { ACT_IDLE, ACT_EXTENDING, ACT_HOLDING, ACT_RETRACTING };
 ActuatorState actState = ACT_IDLE;
 unsigned long actTimer = 0;
-unsigned long lastSensorReadTimer = 0; // Tracks 1-second intervals during holding
+unsigned long lastSensorReadTimer = 0;
 
 // Function Declarations
 void motorForward();
@@ -82,7 +87,7 @@ void readNPKSensor();
 
 void setup() {
   Serial.begin(9600);
-  npkSerial.begin(4800); // Configured for 4800 baud
+  npkSerial.begin(4800); // 7-in-1 Sensor default baud rate
 
   // MAX485 Control Pin Setup
   pinMode(RS485_DE_RE, OUTPUT);
@@ -112,6 +117,7 @@ void setup() {
   Serial.println(F("=========================================================="));
   Serial.println(F("     ARDUINO UNO ROBOT ACTUATOR SYSTEM INITIALIZED        "));
   Serial.println(F("=========================================================="));
+  Serial.flush();
 }
 
 // =========================================================================
@@ -131,13 +137,40 @@ void loop() {
         else if (receivedCode == IR_RIGHT)    { motorRight(); }
         else if (receivedCode == IR_STOP)     { motorStop(); stopActuatorRelay(); }
         else if (receivedCode == IR_ACTUATE)  {
-          motorStop(); // Lock wheels during the 24s sequence
+          motorStop(); // Lock wheels
+          
+          // Anti-brownout / anti-glitch protection:
+          // Disable drivetrain drivers to cut idle electrical noise
+          digitalWrite(L_R_EN, LOW); digitalWrite(L_L_EN, LOW);
+          digitalWrite(R_R_EN, LOW); digitalWrite(R_L_EN, LOW);
+
+          // Flush serial buffer BEFORE energizing relays to prevent USB packet corruption
           Serial.println(F("\n>> ACTUATOR STARTED: All remote buttons locked for 24s..."));
+          Serial.flush();
+          delay(80); // Let power rail stabilize before relay switch
+
           startActuatorExtend();
         }
       }
 
       IrReceiver.resume(); 
+    }
+
+    // Also support web dashboard commands
+    if (Serial.available()) {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd == "SAMPLE" || cmd == "ACTUATE") {
+        motorStop();
+        digitalWrite(L_R_EN, LOW); digitalWrite(L_L_EN, LOW);
+        digitalWrite(R_R_EN, LOW); digitalWrite(R_L_EN, LOW);
+
+        Serial.println(F("\n>> ACTUATOR STARTED: Command received..."));
+        Serial.flush();
+        delay(80);
+
+        startActuatorExtend();
+      }
     }
   } else {
     // Clear out any buffered IR signals received during the 24s lockout period
@@ -168,8 +201,12 @@ void updateActuatorSequence() {
     
     case ACT_EXTENDING:
       if (millis() - actTimer >= EXTEND_TIME) {
-        Serial.println(F(">> Probe fully lowered (7s elapsed). Starting 10s continuous monitoring..."));
         stopActuatorRelay();
+        delay(50); // Dead-time settling delay
+
+        Serial.println(F(">> Probe fully lowered (7s elapsed). Starting 10s continuous monitoring..."));
+        Serial.flush();
+
         actState = ACT_HOLDING;
         actTimer = millis();
         lastSensorReadTimer = 0; // Trigger immediate first reading
@@ -177,7 +214,7 @@ void updateActuatorSequence() {
       break;
 
     case ACT_HOLDING:
-      // Read sensor continuously every 1 second throughout the 10-second hold period
+      // Read sensor every SENSOR_INTERVAL ms throughout the hold period
       if (millis() - lastSensorReadTimer >= SENSOR_INTERVAL) {
         lastSensorReadTimer = millis();
         readNPKSensor();
@@ -185,6 +222,9 @@ void updateActuatorSequence() {
 
       if (millis() - actTimer >= HOLD_TIME) {
         Serial.println(F(">> Hold duration complete (10s elapsed). Retracting for 7s..."));
+        Serial.flush();
+        delay(50); // Dead-time settling delay
+
         actState = ACT_RETRACTING;
         actTimer = millis();
         
@@ -196,10 +236,18 @@ void updateActuatorSequence() {
 
     case ACT_RETRACTING:
       if (millis() - actTimer >= RETRACT_TIME) {
+        stopActuatorRelay();
+        delay(50);
+
+        // Re-enable drivetrain BTS7960 motor drivers
+        digitalWrite(L_R_EN, HIGH); digitalWrite(L_L_EN, HIGH);
+        digitalWrite(R_R_EN, HIGH); digitalWrite(R_L_EN, HIGH);
+
         Serial.println(F(">> Probe fully retracted (7s elapsed). Sensor set to IDLE. Sequence complete."));
         Serial.println(F(">> Remote control unlocked. Ready to navigate."));
         Serial.println(F("----------------------------------------------------------\n"));
-        stopActuatorRelay();
+        Serial.flush();
+
         actState = ACT_IDLE; // Unlocks remote buttons
       }
       break;
@@ -217,57 +265,81 @@ void stopActuatorRelay() {
 }
 
 // =========================================================================
-// 7-IN-1 SENSOR RS485 READ ROUTINE
+// 7-IN-1 SENSOR RS485 READ ROUTINE (DUAL REGISTER QUERY)
 // =========================================================================
 
 void readNPKSensor() {
-  // Clear incoming serial buffer
+  float moisture = 0.0, temperature = 0.0, ph = 0.0;
+  uint16_t ec = 0, nitrogen = 0, phos = 0, potass = 0;
+
+  // -------------------------------------------------------------
+  // QUERY 1: Moisture, Temperature, EC, pH (Starting at Address 0x0000)
+  // -------------------------------------------------------------
   while (npkSerial.available()) { npkSerial.read(); }
 
-  // Switch MAX485 to Transmit mode
-  digitalWrite(RS485_DE_RE, HIGH);
+  digitalWrite(RS485_DE_RE, HIGH); // Transmit mode
   delay(10);
-
-  // Send Modbus Request Frame
-  npkSerial.write(allParamsRequestFrame, sizeof(allParamsRequestFrame));
+  npkSerial.write(envRequestFrame, sizeof(envRequestFrame));
   npkSerial.flush();
-
-  // Switch MAX485 back to Receive mode
-  digitalWrite(RS485_DE_RE, LOW);
+  digitalWrite(RS485_DE_RE, LOW);  // Receive mode
   delay(10);
 
-  // Wait for Modbus Response
   unsigned long timeout = millis();
   byte index = 0;
-
-  while ((millis() - timeout < 500) && (index < sizeof(allParamsResponseFrame))) {
+  while ((millis() - timeout < 500) && (index < sizeof(envResponseFrame))) {
     if (npkSerial.available()) {
-      allParamsResponseFrame[index++] = npkSerial.read();
+      envResponseFrame[index++] = npkSerial.read();
     }
   }
 
-  // Process data if valid frame received (19 bytes expected)
-  if (index >= 19) {
-    float moisture    = ((allParamsResponseFrame[3] << 8)  | allParamsResponseFrame[4]) / 10.0;
-    float temperature = ((allParamsResponseFrame[5] << 8)  | allParamsResponseFrame[6]) / 10.0;
-    uint16_t ec       =  (allParamsResponseFrame[7] << 8)  | allParamsResponseFrame[8];
-    float ph          = ((allParamsResponseFrame[9] << 8)  | allParamsResponseFrame[10]) / 10.0;
-    uint16_t nitrogen =  (allParamsResponseFrame[11] << 8) | allParamsResponseFrame[12];
-    uint16_t phos     =  (allParamsResponseFrame[13] << 8) | allParamsResponseFrame[14];
-    uint16_t potass   =  (allParamsResponseFrame[15] << 8) | allParamsResponseFrame[16];
-
-    Serial.println(F("--- 7-IN-1 SOIL SENSOR READINGS ---"));
-    Serial.print(F("Moisture    : ")); Serial.print(moisture); Serial.println(F(" %"));
-    Serial.print(F("Temperature : ")); Serial.print(temperature); Serial.println(F(" deg C"));
-    Serial.print(F("EC          : ")); Serial.print(ec); Serial.println(F(" us/cm"));
-    Serial.print(F("pH Level    : ")); Serial.println(ph);
-    Serial.print(F("Nitrogen (N): ")); Serial.print(nitrogen); Serial.println(F(" mg/kg"));
-    Serial.print(F("Phosphorus  : ")); Serial.print(phos); Serial.println(F(" mg/kg"));
-    Serial.print(F("Potassium   : ")); Serial.print(potass); Serial.println(F(" mg/kg"));
-    Serial.println(F("-----------------------------------"));
-  } else {
-    Serial.println(F(">> [ERROR] 7-in-1 Sensor Response Timeout or Bad Connection."));
+  if (index >= 13) {
+    moisture    = ((envResponseFrame[3] << 8) | envResponseFrame[4]) / 10.0;
+    temperature = ((envResponseFrame[5] << 8) | envResponseFrame[6]) / 10.0;
+    ec          =  (envResponseFrame[7] << 8) | envResponseFrame[8];
+    ph          = ((envResponseFrame[9] << 8) | envResponseFrame[10]) / 10.0;
   }
+
+  delay(60); // Essential turnaround delay between consecutive Modbus frames
+
+  // -------------------------------------------------------------
+  // QUERY 2: Nitrogen, Phosphorus, Potassium (Starting at Address 0x001E)
+  // -------------------------------------------------------------
+  while (npkSerial.available()) { npkSerial.read(); }
+
+  digitalWrite(RS485_DE_RE, HIGH); // Transmit mode
+  delay(10);
+  npkSerial.write(npkRequestFrame, sizeof(npkRequestFrame));
+  npkSerial.flush();
+  digitalWrite(RS485_DE_RE, LOW);  // Receive mode
+  delay(10);
+
+  timeout = millis();
+  index = 0;
+  while ((millis() - timeout < 500) && (index < sizeof(npkResponseFrame))) {
+    if (npkSerial.available()) {
+      npkResponseFrame[index++] = npkSerial.read();
+    }
+  }
+
+  if (index >= 11) {
+    nitrogen = (npkResponseFrame[3] << 8) | npkResponseFrame[4];
+    phos     = (npkResponseFrame[5] << 8) | npkResponseFrame[6];
+    potass   = (npkResponseFrame[7] << 8) | npkResponseFrame[8];
+  }
+
+  // -------------------------------------------------------------
+  // OUTPUT TO RASPBERRY PI OVER USB SERIAL
+  // -------------------------------------------------------------
+  Serial.println(F("--- 7-IN-1 SOIL SENSOR READINGS ---"));
+  Serial.print(F("Moisture    : ")); Serial.print(moisture); Serial.println(F(" %"));
+  Serial.print(F("Temperature : ")); Serial.print(temperature); Serial.println(F(" deg C"));
+  Serial.print(F("EC          : ")); Serial.print(ec); Serial.println(F(" us/cm"));
+  Serial.print(F("pH Level    : ")); Serial.println(ph);
+  Serial.print(F("Nitrogen (N): ")); Serial.print(nitrogen); Serial.println(F(" mg/kg"));
+  Serial.print(F("Phosphorus  : ")); Serial.print(phos); Serial.println(F(" mg/kg"));
+  Serial.print(F("Potassium   : ")); Serial.print(potass); Serial.println(F(" mg/kg"));
+  Serial.println(F("-----------------------------------"));
+  Serial.flush();
 }
 
 // =========================================================================

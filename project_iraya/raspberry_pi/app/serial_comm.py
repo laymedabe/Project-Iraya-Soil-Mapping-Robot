@@ -94,6 +94,18 @@ class MegaLink:
 
     def _read_loop(self):
         while self._running:
+            if self._ser is None:
+                try:
+                    self._ser = serial.Serial(
+                        Config.SERIAL_PORT, Config.SERIAL_BAUD, timeout=Config.SERIAL_TIMEOUT
+                    )
+                    self.state["connected"] = True
+                    logger.info(f"Reconnected to Arduino on {Config.SERIAL_PORT}")
+                except Exception:
+                    self.state["connected"] = False
+                    time.sleep(1.0)
+                    continue
+
             try:
                 raw = self._ser.readline()
                 if not raw:
@@ -102,8 +114,15 @@ class MegaLink:
                 if line:
                     self._handle_line(line)
             except Exception as exc:
-                logger.error(f"Serial read error: {exc}")
-                time.sleep(0.5)
+                logger.error(f"Serial read error: {exc}. Attempting reconnection...")
+                self.state["connected"] = False
+                try:
+                    if self._ser:
+                        self._ser.close()
+                except Exception:
+                    pass
+                self._ser = None
+                time.sleep(1.0)
 
     def _handle_line(self, line: str):
         logger.debug(f"[MEGA->PI] {line}")
