@@ -125,7 +125,7 @@ class MegaLink:
                 time.sleep(1.0)
 
     def _handle_line(self, line: str):
-        logger.debug(f"[MEGA->PI] {line}")
+        logger.info(f"[MEGA->PI] {line}")
         
         # We need a buffer to accumulate the multi-line sensor readings
         if not hasattr(self, "_sensor_buffer"):
