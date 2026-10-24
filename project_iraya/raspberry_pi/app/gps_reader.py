@@ -80,8 +80,8 @@ class GPSReader:
                             self._last_fix_time = now
                             self.fix = True
                         else:
-                            # Only drop fix if no valid sentence arrived within the timeout window
-                            if (now - self._last_fix_time) > self._FIX_TIMEOUT:
+                            # Only drop fix if no valid sentence arrived within the timeout window and not in manual override
+                            if (now - self._last_fix_time) > self._FIX_TIMEOUT and not self._manual_override:
                                 self.fix = False
                 elif line.startswith('$GPGGA') or line.startswith('$GNGGA'):
                     msg = pynmea2.parse(line)
@@ -95,9 +95,10 @@ class GPSReader:
                             self.hdop = float(msg.horizontal_dil) if msg.horizontal_dil else 0.0
                             self._last_fix_time = now
                             self.fix = True
+                            self._manual_override = False # Real hardware fix acquired, release override
                         else:
                             # Only drop fix after timeout — brief GGA quality drops during movement are ignored
-                            if (now - self._last_fix_time) > self._FIX_TIMEOUT:
+                            if (now - self._last_fix_time) > self._FIX_TIMEOUT and not self._manual_override:
                                 self.sats = int(msg.num_sats) if msg.num_sats else 0
                                 self.fix = False
             except serial.SerialException as e:
@@ -139,7 +140,8 @@ class GPSReader:
                 'hdop': self.hdop,
                 'cog': self.cog,
                 'spd': self.spd,
-                'fix': self.fix
+                'fix': self.fix,
+                'manual': self._manual_override
             }
 
 gps_reader = GPSReader()

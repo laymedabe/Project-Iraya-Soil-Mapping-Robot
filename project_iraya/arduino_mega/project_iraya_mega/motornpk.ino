@@ -93,7 +93,7 @@ void readNPKSensor();
 
 void setup() {
   Serial.begin(9600);
-  npkSerial.begin(4800); // 7-in-1 Sensor default baud rate
+  npkSerial.begin(4800); // 7-in-1 Sensor default baud rate (4800)
 
   // MAX485 Control Pin Setup
   pinMode(RS485_DE_RE, OUTPUT);
@@ -141,24 +141,36 @@ void setup() {
 // =========================================================================
 
 void loop() {
+  // Safety: if actuator just became IDLE but EN pins were left LOW, re-enable them
   if (actState == ACT_IDLE) {
-    if (IrReceiver.decode()) {
-      unsigned long receivedCode = IrReceiver.decodedIRData.decodedRawData;
+    digitalWrite(L_R_EN, HIGH);
+    digitalWrite(L_L_EN, HIGH);
+    digitalWrite(R_R_EN, HIGH);
+    digitalWrite(R_L_EN, HIGH);
 
-      if (receivedCode != 0 &&
-          !(IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
-        if (receivedCode == IR_FORWARD) {
+    if (IrReceiver.decode()) {
+      unsigned long rawCode = IrReceiver.decodedIRData.decodedRawData;
+      uint16_t cmd = IrReceiver.decodedIRData.command;
+
+      if (!(IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
+        if (rawCode == IR_FORWARD || cmd == 0x43) {
+          Serial.println(F("[MOTOR] FORWARD"));
           motorForward();
-        } else if (receivedCode == IR_BACKWARD) {
+        } else if (rawCode == IR_BACKWARD || cmd == 0x44) {
+          Serial.println(F("[MOTOR] BACKWARD"));
           motorBackward();
-        } else if (receivedCode == IR_LEFT) {
+        } else if (rawCode == IR_LEFT || cmd == 0x46) {
+          Serial.println(F("[MOTOR] LEFT"));
           motorLeft();
-        } else if (receivedCode == IR_RIGHT) {
+        } else if (rawCode == IR_RIGHT || cmd == 0x15) {
+          Serial.println(F("[MOTOR] RIGHT"));
           motorRight();
-        } else if (receivedCode == IR_STOP) {
+        } else if (rawCode == IR_STOP || cmd == 0x52) {
+          Serial.println(F("[MOTOR] STOP"));
           motorStop();
           stopActuatorRelay();
-        } else if (receivedCode == IR_ACTUATE) {
+        } else if (rawCode == IR_ACTUATE || cmd == 0x40) {
+          Serial.println(F("[MOTOR] ACTUATE SEQUENCE TRIGGERED"));
           motorStop();
 
           // Disable motor drivers to prevent electrical noise
@@ -173,15 +185,26 @@ void loop() {
           delay(80);
 
           startActuatorExtend();
+        } else {
+          // Print full IR diagnostic details
+          Serial.print(F("[IR] "));
+          IrReceiver.printIRResultShort(&Serial);
+          Serial.print(F(" | Raw: 0x"));
+          Serial.print(rawCode, HEX);
+          Serial.print(F(" | Cmd: 0x"));
+          Serial.println(cmd, HEX);
+          Serial.flush();
         }
       }
 
       IrReceiver.resume();
     }
 
+    // Serial commands from Raspberry Pi dashboard
     if (Serial.available()) {
       String cmd = Serial.readStringUntil('\n');
       cmd.trim();
+
       if (cmd == "SAMPLE" || cmd == "ACTUATE") {
         motorStop();
         digitalWrite(L_R_EN, LOW);
@@ -195,6 +218,25 @@ void loop() {
         delay(80);
 
         startActuatorExtend();
+
+      } else if (cmd.startsWith("DRIVE ")) {
+        // Format: DRIVE FWD 200  /  DRIVE BACK 200  /  DRIVE LEFT 200  /  DRIVE RIGHT 200
+        String parts = cmd.substring(6); // strip "DRIVE "
+        int spIdx = parts.indexOf(' ');
+        String dir = (spIdx >= 0) ? parts.substring(0, spIdx) : parts;
+        int spd = (spIdx >= 0) ? parts.substring(spIdx + 1).toInt() : MOTOR_SPEED;
+        spd = constrain(spd, 0, 255);
+
+        // Temporarily set speed from command
+        if (dir == "FWD")   { analogWrite(L_RPWM, 0); analogWrite(R_RPWM, 0); analogWrite(L_LPWM, spd); analogWrite(R_LPWM, spd); Serial.println(F("[SERIAL] DRIVE FWD")); }
+        else if (dir == "BACK")  { analogWrite(L_LPWM, 0); analogWrite(R_LPWM, 0); analogWrite(L_RPWM, spd); analogWrite(R_RPWM, spd); Serial.println(F("[SERIAL] DRIVE BACK")); }
+        else if (dir == "LEFT")  { analogWrite(L_LPWM, 0); analogWrite(R_RPWM, 0); analogWrite(L_RPWM, spd); analogWrite(R_LPWM, spd); Serial.println(F("[SERIAL] DRIVE LEFT")); }
+        else if (dir == "RIGHT") { analogWrite(R_LPWM, 0); analogWrite(L_RPWM, 0); analogWrite(L_LPWM, spd); analogWrite(R_RPWM, spd); Serial.println(F("[SERIAL] DRIVE RIGHT")); }
+        else                     { motorStop(); Serial.println(F("[SERIAL] STOP")); }
+
+      } else if (cmd == "STOP") {
+        motorStop();
+        Serial.println(F("[SERIAL] STOP"));
       }
     }
   } else {
@@ -205,6 +247,7 @@ void loop() {
 
   updateActuatorSequence();
 }
+
 
 // =========================================================================
 // ACTUATOR AUTOMATION & STATE MACHINE
@@ -375,36 +418,17 @@ void readNPKSensor() {
     k_0x1e = (npkResponseFrame[7] << 8) | npkResponseFrame[8];
   }
 
-  // CRITICAL GUARD: Only output readings if the sensor actually responded!
-  if (!q1_ok && !q2_ok) {
-    Serial.println(F(">> [ERROR] 7-in-1 Sensor Timeout or No Response. Check 12V power & RS485 wiring."));
-    Serial.flush();
-    return;
-  }
-
   // Auto-detect which register set returned actual values
   uint16_t final_n = (n_0x1e > 0) ? n_0x1e : n_0x00;
   uint16_t final_p = (p_0x1e > 0) ? p_0x1e : p_0x00;
   uint16_t final_k = (k_0x1e > 0) ? k_0x1e : k_0x00;
 
-  // Print Raw Diagnostic Hex so you can see exact sensor bytes in serial monitor / logs
-  Serial.print(F("[RAW 0x0000]: "));
-  for (byte i = 0; i < idx1; i++) {
-    if (allParamsResponseFrame[i] < 0x10)
-      Serial.print(F("0"));
-    Serial.print(allParamsResponseFrame[i], HEX);
-    Serial.print(F(" "));
-  }
-  Serial.println();
-
-  Serial.print(F("[RAW 0x001E]: "));
-  for (byte i = 0; i < idx2; i++) {
-    if (npkResponseFrame[i] < 0x10)
-      Serial.print(F("0"));
-    Serial.print(npkResponseFrame[i], HEX);
-    Serial.print(F(" "));
-  }
-  Serial.println();
+  // Debug line to see if sensor actually answered
+  Serial.print(F("[SENSOR RESP]: Frame1="));
+  Serial.print(idx1);
+  Serial.print(F("/19B  Frame2="));
+  Serial.print(idx2);
+  Serial.println(F("/11B"));
 
   // Output formatted fields to Raspberry Pi (matches serial_comm.py)
   Serial.println(F("--- 7-IN-1 SOIL SENSOR READINGS ---"));

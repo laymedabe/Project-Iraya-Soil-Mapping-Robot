@@ -423,9 +423,10 @@ async function pollLatest(){
 
     if(data.gps && data.gps.fix){
         latestRobotGps = data.gps;
-        if(el('gpsVal')) el('gpsVal').textContent = `${data.gps.lat.toFixed(5)}, ${data.gps.lon.toFixed(5)}`;
+        const tag = data.gps.manual ? ' (Manual)' : '';
+        if(el('gpsVal')) el('gpsVal').textContent = `${data.gps.lat.toFixed(5)}, ${data.gps.lon.toFixed(5)}${tag}`;
         if(el('altVal') && data.gps.alt !== undefined) el('altVal').textContent = data.gps.alt.toFixed(1) + ' m';
-        if(el('satVal') && data.gps.sats !== undefined) el('satVal').textContent = Math.round(data.gps.sats);
+        if(el('satVal') && data.gps.sats !== undefined) el('satVal').textContent = data.gps.manual ? 'Manual' : Math.round(data.gps.sats);
         if(el('hdopVal') && data.gps.hdop !== undefined) el('hdopVal').textContent = data.gps.hdop.toFixed(2);
     } else {
         latestRobotGps = null;

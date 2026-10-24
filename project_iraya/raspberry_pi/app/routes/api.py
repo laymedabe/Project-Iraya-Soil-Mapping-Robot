@@ -235,12 +235,15 @@ def gps_override():
     with gps_reader._lock:
         gps_reader.lat = lat
         gps_reader.lon = lon
+        gps_reader.alt = float(data.get("alt", 45.0))
+        gps_reader.sats = int(data.get("sats", 8))
+        gps_reader.hdop = float(data.get("hdop", 1.2))
         gps_reader.fix = True
         gps_reader._last_fix_time = time.time()
         # Tag so the telemetry UI can show "Manual" instead of satellite count
         gps_reader._manual_override = True
 
-    logger.info(f"GPS manual override applied: lat={lat}, lon={lon}")
-    return jsonify({"status": "ok", "lat": lat, "lon": lon})
+    logger.info(f"GPS manual override applied: lat={lat}, lon={lon}, alt={gps_reader.alt}, sats={gps_reader.sats}")
+    return jsonify({"status": "ok", "lat": lat, "lon": lon, "alt": gps_reader.alt, "sats": gps_reader.sats, "hdop": gps_reader.hdop})
 
 
