@@ -24,6 +24,9 @@ class GPSReader:
         self.cog = 0.0
         self.spd = 0.0
         self.fix = False
+        self._last_fix_time = 0.0   # epoch of last valid fix sentence
+        self._FIX_TIMEOUT = 5.0     # seconds before fix is considered lost
+        self._manual_override = False  # True when coordinates were set manually from dashboard
         
         self.running = False
         self.thread = None
@@ -67,17 +70,22 @@ class GPSReader:
                     continue
                 if line.startswith('$GPRMC') or line.startswith('$GNRMC'):
                     msg = pynmea2.parse(line)
+                    now = time.time()
                     with self._lock:
                         if msg.status == 'A':
                             self.lat = msg.latitude
                             self.lon = msg.longitude
                             self.cog = float(msg.true_course) if msg.true_course else 0.0
                             self.spd = float(msg.spd_over_grnd) * 0.514444 if msg.spd_over_grnd else 0.0 # knots to m/s
+                            self._last_fix_time = now
                             self.fix = True
                         else:
-                            self.fix = False
+                            # Only drop fix if no valid sentence arrived within the timeout window
+                            if (now - self._last_fix_time) > self._FIX_TIMEOUT:
+                                self.fix = False
                 elif line.startswith('$GPGGA') or line.startswith('$GNGGA'):
                     msg = pynmea2.parse(line)
+                    now = time.time()
                     with self._lock:
                         if msg.gps_qual > 0:
                             self.lat = msg.latitude
@@ -85,9 +93,13 @@ class GPSReader:
                             self.alt = float(msg.altitude) if msg.altitude else 0.0
                             self.sats = int(msg.num_sats) if msg.num_sats else 0
                             self.hdop = float(msg.horizontal_dil) if msg.horizontal_dil else 0.0
+                            self._last_fix_time = now
                             self.fix = True
                         else:
-                            self.fix = False
+                            # Only drop fix after timeout — brief GGA quality drops during movement are ignored
+                            if (now - self._last_fix_time) > self._FIX_TIMEOUT:
+                                self.sats = int(msg.num_sats) if msg.num_sats else 0
+                                self.fix = False
             except serial.SerialException as e:
                 logger.error(f"GPS Serial error: {e}")
                 time.sleep(1)

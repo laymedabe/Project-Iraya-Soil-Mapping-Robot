@@ -301,8 +301,17 @@ def get_readings(session_id):
 def get_all_readings():
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM readings ORDER BY recorded_at")
-            return cur.fetchall()
+            # Filter out corrupt/unplugged all-zero timeout dummy readings
+            cur.execute("""
+                SELECT * FROM readings 
+                WHERE NOT (lat = 0 AND lon = 0 AND moisture = 0 AND temperature = 0 AND ec = 0 AND ph = 0 AND nitrogen = 0)
+                ORDER BY recorded_at
+            """)
+            rows = cur.fetchall()
+            if not rows:
+                cur.execute("SELECT * FROM readings ORDER BY recorded_at")
+                rows = cur.fetchall()
+            return rows
 
 
 def get_unsynced_readings(limit=500):

@@ -213,6 +213,7 @@ void loop() {
 void startActuatorExtend() {
   actState = ACT_EXTENDING;
   actTimer = millis();
+  Serial.println(F("STATUS LOWERING"));
 
   digitalWrite(RELAY_ACT_1, LOW);  // Lead 1 -> +12V
   digitalWrite(RELAY_ACT_2, HIGH); // Lead 2 -> GND
@@ -226,6 +227,7 @@ void updateActuatorSequence() {
       stopActuatorRelay();
       delay(50);
 
+      Serial.println(F("STATUS READING"));
       Serial.println(F(">> Probe fully lowered (7s elapsed). Starting 10s "
                        "continuous monitoring..."));
       Serial.flush();
@@ -243,6 +245,7 @@ void updateActuatorSequence() {
     }
 
     if (millis() - actTimer >= HOLD_TIME) {
+      Serial.println(F("STATUS RETRACTING"));
       Serial.println(
           F(">> Hold duration complete (10s elapsed). Retracting for 7s..."));
       Serial.flush();
@@ -266,6 +269,7 @@ void updateActuatorSequence() {
       digitalWrite(R_R_EN, HIGH);
       digitalWrite(R_L_EN, HIGH);
 
+      Serial.println(F("STATUS IDLE"));
       Serial.println(F(">> Probe fully retracted (7s elapsed). Sensor set to "
                        "IDLE. Sequence complete."));
       Serial.println(F(">> Remote control unlocked. Ready to navigate."));
@@ -309,19 +313,22 @@ void readNPKSensor() {
   delay(10);
   npkSerial.write(allParamsRequestFrame, sizeof(allParamsRequestFrame));
   npkSerial.flush();
+  delay(15); // Wait for transmission of last bit on 4800 baud before disabling driver
   digitalWrite(RS485_DE_RE, LOW); // Receive mode
   delay(10);
 
   unsigned long timeout = millis();
   byte idx1 = 0;
-  while ((millis() - timeout < 500) &&
+  while ((millis() - timeout < 600) &&
          (idx1 < sizeof(allParamsResponseFrame))) {
     if (npkSerial.available()) {
       allParamsResponseFrame[idx1++] = npkSerial.read();
     }
   }
 
+  bool q1_ok = false;
   if (idx1 >= 19) {
+    q1_ok = true;
     moisture =
         ((allParamsResponseFrame[3] << 8) | allParamsResponseFrame[4]) / 10.0;
     temperature =
@@ -347,22 +354,32 @@ void readNPKSensor() {
   delay(10);
   npkSerial.write(npkRequestFrame, sizeof(npkRequestFrame));
   npkSerial.flush();
+  delay(15);
   digitalWrite(RS485_DE_RE, LOW); // Receive mode
   delay(10);
 
   timeout = millis();
   byte idx2 = 0;
-  while ((millis() - timeout < 500) &&
+  while ((millis() - timeout < 600) &&
          (idx2 < sizeof(npkResponseFrame))) {
     if (npkSerial.available()) {
       npkResponseFrame[idx2++] = npkSerial.read();
     }
   }
 
+  bool q2_ok = false;
   if (idx2 >= 11) {
+    q2_ok = true;
     n_0x1e = (npkResponseFrame[3] << 8) | npkResponseFrame[4];
     p_0x1e = (npkResponseFrame[5] << 8) | npkResponseFrame[6];
     k_0x1e = (npkResponseFrame[7] << 8) | npkResponseFrame[8];
+  }
+
+  // CRITICAL GUARD: Only output readings if the sensor actually responded!
+  if (!q1_ok && !q2_ok) {
+    Serial.println(F(">> [ERROR] 7-in-1 Sensor Timeout or No Response. Check 12V power & RS485 wiring."));
+    Serial.flush();
+    return;
   }
 
   // Auto-detect which register set returned actual values
@@ -370,7 +387,7 @@ void readNPKSensor() {
   uint16_t final_p = (p_0x1e > 0) ? p_0x1e : p_0x00;
   uint16_t final_k = (k_0x1e > 0) ? k_0x1e : k_0x00;
 
-  // Print Raw Diagnostic Hex so you can see exact sensor bytes in journalctl
+  // Print Raw Diagnostic Hex so you can see exact sensor bytes in serial monitor / logs
   Serial.print(F("[RAW 0x0000]: "));
   for (byte i = 0; i < idx1; i++) {
     if (allParamsResponseFrame[i] < 0x10)

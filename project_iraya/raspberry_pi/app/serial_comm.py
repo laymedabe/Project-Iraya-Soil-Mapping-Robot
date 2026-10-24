@@ -134,6 +134,14 @@ class MegaLink:
         if line.startswith("STATUS"):
             step = line.split(" ", 1)[1] if " " in line else line
             self.state["step"] = step
+        elif "ACTUATOR STARTED" in line:
+            self.state["step"] = "LOWERING"
+        elif "Probe fully lowered" in line:
+            self.state["step"] = "READING"
+        elif "Hold duration complete" in line:
+            self.state["step"] = "RETRACTING"
+        elif "Probe fully retracted" in line:
+            self.state["step"] = "IDLE"
         elif line.startswith("FAULT"):
             self.state["last_fault"] = line
             self._event_queue.put({"type": "fault", "payload": line})
@@ -171,14 +179,52 @@ class MegaLink:
                     "ec": self._sensor_buffer.get("ec", 0),
                     "ph": self._sensor_buffer.get("ph", 0)
                 }
-                self.state["latest_npk"] = npk_data
                 
-                # Trigger the database capture right now
-                threading.Thread(target=self._capture_sample, args=(npk_data,), daemon=True).start()
+                # Filter out dummy/timeout all-zero reading
+                is_all_zero = all(v == 0 or v == 0.0 for v in npk_data.values())
+                
+                if not is_all_zero:
+                    self.state["latest_npk"] = npk_data
+                    
+                    # Debounce: minimum 8 seconds between database sample captures
+                    now = time.time()
+                    last_time = getattr(self, "_last_capture_time", 0.0)
+                    if (now - last_time) >= 8.0:
+                        self._last_capture_time = now
+                        threading.Thread(target=self._capture_sample, args=(npk_data,), daemon=True).start()
+                    else:
+                        logger.info("Ignoring duplicate rapid reading during same hold cycle")
+                else:
+                    logger.warning("Ignoring all-zero dummy reading (sensor timeout or disconnected)")
                 
                 # Clear buffer for next time
                 self._sensor_buffer = {}
             except ValueError: pass
+
+        elif line.startswith("DATA NPK"):
+            # Support compact protocol if sent by firmware: DATA NPK <N> <P> <K>
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    n = float(parts[2])
+                    p = float(parts[3])
+                    k = float(parts[4])
+                    npk_data = {
+                        "nitrogen": n,
+                        "phosphorus": p,
+                        "potassium": k,
+                        "moisture": self._sensor_buffer.get("moisture", 0),
+                        "temperature": self._sensor_buffer.get("temperature", 0),
+                        "ec": self._sensor_buffer.get("ec", 0),
+                        "ph": self._sensor_buffer.get("ph", 0),
+                    }
+                    now = time.time()
+                    last_time = getattr(self, "_last_capture_time", 0.0)
+                    if (now - last_time) >= 8.0:
+                        self._last_capture_time = now
+                        self.state["latest_npk"] = npk_data
+                        threading.Thread(target=self._capture_sample, args=(npk_data,), daemon=True).start()
+                except (ValueError, IndexError): pass
             
         elif line.startswith("ACK"):
             pass  # command acknowledged, nothing to do beyond logging

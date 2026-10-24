@@ -61,15 +61,41 @@ def get_map():
     readings = models.get_all_readings()
     if not readings:
         return jsonify({})
-        
+
+    # 1. Filter out uncalibrated / probe-in-air zero dummy readings if valid non-zero data exists
+    valid_readings = [
+        r for r in readings
+        if (float(r.get("nitrogen") or 0) > 0 or 
+            float(r.get("phosphorus") or 0) > 0 or 
+            float(r.get("potassium") or 0) > 0)
+    ]
+    used_readings = valid_readings if valid_readings else readings
+
+    # 2. Spatially deduplicate: keep the latest reading per coordinate bin (~11m resolution)
+    # This prevents hundreds of repeated bench/stationary zero tests from diluting newer soil measurements
+    spatial_dict = {}
+    for r in used_readings:
+        try:
+            lat = float(r["lat"])
+            lon = float(r["lon"])
+            key = (round(lat, 4), round(lon, 4))
+            spatial_dict[key] = r
+        except (ValueError, TypeError, KeyError):
+            continue
+
     samples = [
         {
-            "lat": float(r["lat"]), "lon": float(r["lon"]),
-            "nitrogen": float(r["nitrogen"]), "phosphorus": float(r["phosphorus"]),
+            "lat": float(r["lat"]),
+            "lon": float(r["lon"]),
+            "nitrogen": float(r["nitrogen"]),
+            "phosphorus": float(r["phosphorus"]),
             "potassium": float(r["potassium"]),
         }
-        for r in readings
+        for r in spatial_dict.values()
     ]
+
+    if not samples:
+        return jsonify({})
 
     grid = idw_interpolate(
         samples,
@@ -176,3 +202,45 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-disposition": "attachment; filename=iraya_readings.csv"}
     )
+
+
+@api_bp.route("/cleanup_dummies", methods=["GET", "POST"])
+def cleanup_dummies():
+    """Purges all-zero timeout dummy records logged when the sensor was disconnected/unpowered."""
+    try:
+        with models.get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM readings 
+                    WHERE lat = 0 AND lon = 0 AND moisture = 0 AND temperature = 0 AND ec = 0 AND ph = 0 AND nitrogen = 0
+                """)
+        return jsonify({"status": "success", "message": "Deleted all-zero dummy readings from database"})
+    except Exception as e:
+        logger.error(f"Failed to cleanup dummy readings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route("/gps/override", methods=["POST"])
+def gps_override():
+    """Manually inject GPS coordinates when the module has no fix (e.g. when moving to a new site)."""
+    data = request.get_json() or {}
+    try:
+        lat = float(data["lat"])
+        lon = float(data["lon"])
+    except (KeyError, ValueError, TypeError):
+        return jsonify({"error": "lat and lon are required numeric fields"}), 400
+
+    from app.gps_reader import gps_reader
+    import time
+    with gps_reader._lock:
+        gps_reader.lat = lat
+        gps_reader.lon = lon
+        gps_reader.fix = True
+        gps_reader._last_fix_time = time.time()
+        # Tag so the telemetry UI can show "Manual" instead of satellite count
+        gps_reader._manual_override = True
+
+    logger.info(f"GPS manual override applied: lat={lat}, lon={lon}")
+    return jsonify({"status": "ok", "lat": lat, "lon": lon})
+
+
